@@ -19,7 +19,9 @@
 @keyframes tk-ping { 0% { box-shadow: inset 0 0 0 3px rgba(232, 180, 90, .9), inset 0 0 28px rgba(232, 180, 90, .35); } 100% { box-shadow: inset 0 0 0 3px rgba(232, 180, 90, 0), inset 0 0 28px rgba(232, 180, 90, 0); } }
 @keyframes tk-badge { 50% { opacity: .2; } }
 
-.tk-reqs { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow: hidden; }
+/* Up to four crew can be waiting at once, which is taller than the terminal: the list scrolls and the most urgent card sorts first. */
+.tk-reqs { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--amber-dim) transparent; }
+.tk-reqs > * { flex: none; }
 .tk[data-mode="working"] .tk-reqs { display: none; }
 .tk-sec { font-family: var(--font-display); font-size: 18px; letter-spacing: .14em; color: var(--amber-dim); }
 .tk-list { display: flex; flex-direction: column; gap: 8px; }

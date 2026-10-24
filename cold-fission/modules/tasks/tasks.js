@@ -297,7 +297,11 @@
       if (cur === r) return;                        // the minigame has its own timer
       r.patience -= e.dt;
       const c = cards[r.tid];
-      if (c) { c.bar.style.width = Math.max(0, (r.patience / r.max) * 100) + '%'; c.card.classList.toggle('urgent', r.patience < 8); }
+      if (c) {
+        c.bar.style.width = Math.max(0, (r.patience / r.max) * 100) + '%';
+        c.card.classList.toggle('urgent', r.patience < 8);
+        c.card.style.order = Math.max(0, Math.ceil(r.patience));   // least patience left first, so the urgent one is never scrolled out of sight
+      }
       if (r.patience <= 0) hurt(tm(r.tid), r, 'missed');
     });
 

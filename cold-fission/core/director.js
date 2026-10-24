@@ -64,8 +64,10 @@
   setInterval(() => {
     if (!running) return;
     const now = performance.now();
-    if (S.get('paused') || finale) { last = now; return; }   // a modal (minigame tips) or the cockpit finale freezes the run clock
-    const real = Math.min((now - last) / 1000, 0.5);   // a hidden tab effectively pauses the game
+    // A modal (minigame tips), the cockpit finale or a hidden tab freezes the run clock. A hidden tab stops the minigames'
+    // animation frames but not this interval, so without the check the support timer would run out while nobody can play.
+    if (S.get('paused') || finale || document.hidden) { last = now; return; }
+    const real = Math.min((now - last) / 1000, 0.5);
     last = now;
     const dt = real * cfg.speed;
     elapsed = Math.min(total, elapsed + dt);
