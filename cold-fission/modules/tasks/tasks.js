@@ -4,6 +4,7 @@
   CF.minigames = CF.minigames || {};
 
   const SLOW = 1.4;                                   // a hurt crew member walks and works this much slower
+  const POWER_BONUS = 25;                             // power points a finished Fuel Cell adds to the pool
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   const LINES = {
     go: ['On my way.', 'Heading out.', 'Moving.'],
@@ -18,6 +19,7 @@
   ];
 
   let el = {}, team = [], objs = [], reqs = [], cards = {}, log = [];
+  let seen = {}, tip = null, tipOpen = null;
   let mode = 'idle', cur = null, game = null, workLeft = 0, workMax = 1, nextLine = 0, lastWarning = -100, elapsed = 0;
 
   const tm = (id) => team.find((t) => t.id === id);
@@ -76,9 +78,12 @@
     const d = def(o.id);
     o.done = true; o.by = null; o.frac = 0; t.status = 'idle'; t.at = null; t.timer = 0;
     say(t.id, d.kind === 'item' ? 'I have the ' + o.name + '.' : o.name + ': done.');
-    if (d.bonus) {
+    if (d.bonus === 'power') {
+      bus.emit('power:gain', { amount: POWER_BONUS, by: o.name });
+      say(t.id, 'The cell is still hot. I patched its charge into the grid: +' + POWER_BONUS + ' power.');
+    } else if (d.bonus === 'battery') {
       S.add('battery', 1);
-      say(t.id, 'Found a spare ' + d.bonus + ' on the way back. It is yours.');
+      say(t.id, 'Found a spare battery on the way back. Power drain is a little lower.');
     }
     bus.emit('sfx', 'chime');
     publish();
@@ -124,8 +129,42 @@
     el.title.textContent = (mg ? mg.title : 'SUPPORT') + ' · ' + tm(r.tid).name.toUpperCase();
     bus.emit('sfx', 'click');
     if (!mg) { finishSupport(true); return; }
-    const started = mg.start(el.game, (ok) => finishSupport(ok), r.opts);
-    if (mode === 'working') game = started;
+    const begin = () => {
+      if (mode !== 'working' || cur !== r) return;
+      const started = mg.start(el.game, (ok) => finishSupport(ok), r.opts);
+      if (mode === 'working' && cur === r) game = started;
+    };
+    if (mg.tips && !seen[r.game]) { seen[r.game] = true; openTip(mg, begin); }
+    else begin();
+  }
+
+  /* ── first-use tips: a modal that freezes the whole run until it is dismissed ── */
+  function setPaused(on) {
+    S.set('paused', on);
+    bus.emit('game:pause', { paused: on });
+  }
+
+  function openTip(mg, begin) {
+    const t = mg.tips;
+    tip.title.textContent = mg.title;
+    tip.goal.textContent = t.goal;
+    tip.list.innerHTML = '';
+    t.keys.forEach((k) => { const li = document.createElement('li'); li.textContent = k; tip.list.appendChild(li); });
+    tip.hint.textContent = t.hint || '';
+    tip.hint.hidden = !t.hint;
+    tip.root.hidden = false;
+    tipOpen = { begin: begin };
+    setPaused(true);
+    bus.emit('sfx', 'beep');
+  }
+
+  function closeTip() {
+    if (!tipOpen) return;
+    const begin = tipOpen.begin;
+    tipOpen = null;
+    tip.root.hidden = true;
+    // Let the key that closed the tip finish before the minigame starts listening.
+    setTimeout(() => { setPaused(false); begin(); }, 120);
   }
 
   function endGame() {
@@ -223,10 +262,11 @@
     if (e.phase === 'play') {
       if (mode === 'working') endGame();
       mode = 'idle'; el.root.dataset.mode = 'idle';
-      nextLine = 0; elapsed = 0; lastWarning = -100;
+      nextLine = 0; elapsed = 0; lastWarning = -100; seen = {};
       say('sys', 'Crew and shutters are live. Send a crew member, then watch both halls.');
     } else if (e.phase === 'win' || e.phase === 'lose') {
       endGame(); mode = 'idle'; el.root.dataset.mode = 'idle';
+      if (tipOpen) { tipOpen = null; tip.root.hidden = true; setPaused(false); }
     }
   }
 
@@ -260,6 +300,18 @@
       bar: root.querySelector('.tk-bar i'), game: root.querySelector('.tk-game'),
     };
 
+    const stage = (CF.ui && CF.ui.stage) || root;
+    const tipRoot = document.createElement('div');
+    tipRoot.className = 'tk-tip';
+    tipRoot.hidden = true;
+    tipRoot.innerHTML = '<div class="tk-tip-box"><div class="tk-tip-tag">NEW TASK · GAME PAUSED</div><h2 class="tk-tip-title"></h2>' +
+      '<p class="tk-tip-goal"></p><ul class="tk-tip-keys"></ul><p class="tk-tip-hint"></p>' +
+      '<button class="tk-btn tk-tip-go">START <kbd>ENTER</kbd> <kbd>SPACE</kbd></button></div>';
+    stage.appendChild(tipRoot);
+    tip = { root: tipRoot, title: tipRoot.querySelector('.tk-tip-title'), goal: tipRoot.querySelector('.tk-tip-goal'),
+      list: tipRoot.querySelector('.tk-tip-keys'), hint: tipRoot.querySelector('.tk-tip-hint') };
+    tipRoot.querySelector('.tk-tip-go').addEventListener('click', closeTip);
+
     team = cfg.initialCrew().map((t) => Object.assign(t, { timer: 0 }));
     objs = cfg.initialObjectives().map((o) => Object.assign(o, { step: 0, frac: 0 }));
     publish();
@@ -270,6 +322,12 @@
     bus.on('phase:change', onPhase);
     bus.on('creature:threat', onThreat);
     window.addEventListener('keydown', (e) => {
+      if (tipOpen) {
+        // Everything is frozen behind the tip: only Enter or Space dismisses it.
+        e.stopImmediatePropagation();
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!e.repeat) closeTip(); }
+        return;
+      }
       if (mode !== 'working') return;
       if (e.code === 'Space') e.preventDefault();
       if (['1', '2', 'a', 'd'].includes(e.key.toLowerCase())) e.stopImmediatePropagation();

@@ -29,6 +29,7 @@
     objectives: [],     // escape checklist, written by the tasks module
     power: 100,         // continuous 0..100 pool
     battery: 0,         // extra batteries found (each cuts power drain by 15%)
+    paused: false,      // true while a minigame tip is open: the director sends no ticks
     clock: 943,         // wall clock in minutes since midnight: 943 = 15:43, 1500 = 01:00 next day
     timeLeft: 480,      // game-seconds until the clock reaches its end (01:00)
     phaseTimeLeft: 0,

@@ -22,6 +22,7 @@
     const now = performance.now();
     const dt = Math.min((now - last) / 1000, 0.5) * cfg.speed;
     last = now;
+    if (S.get('paused')) return;
     if (S.get('phase') === 'win' || S.get('phase') === 'lose') return;
     elapsed += dt;
     if (elapsed >= end) { enter(S.get('day')); return; }

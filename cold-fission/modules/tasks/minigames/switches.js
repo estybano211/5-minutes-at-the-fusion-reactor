@@ -14,6 +14,15 @@
 
   CF.minigames.switches = {
     id: 'switches', title: 'IGNITION PANEL',
+    tips: {
+      goal: 'The ignition panel is set wrong. Put every switch and lever in the position written under its name.',
+      keys: [
+        '← → pick a control. Click a control to select it too.',
+        'SPACE flips a switch ON/OFF, or steps a lever through LOW, MID and HIGH.',
+        'A lamp turns green when its control matches REQUIRED. When all lamps are green the panel locks in.',
+      ],
+      hint: 'On the final panel the IGNITER refuses to switch on until the FUEL PUMP is ON.',
+    },
     start(el, done, opts) {
       opts = opts || {};
       const level = Math.max(1, Math.min(3, opts.difficulty || 1));

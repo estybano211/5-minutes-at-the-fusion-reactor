@@ -2,7 +2,7 @@
 (function () {
   const CF = window.CF, bus = CF.bus;
 
-  const GEIGER_PER_SEC = [0.4, 2.5, 6, 12];        // ticks per second at threat level 0..3
+  const HEART_PER_SEC = [0, 0.5, 0.9, 1.4];         // heartbeats per second at threat level 0..3
   const ENDINGS = {
     win: [
       'Launch sequence complete. The ship lifts off as the plant melts down behind it.',
@@ -14,7 +14,7 @@
     alone: ['The control room is very quiet.', 'The reactor does not mind.'],
   };
 
-  let threatLevel = 0;
+  let threatLevel = 0, heartIn = 0;
 
   function mount(slots) {
     const fx = slots.fx;
@@ -43,20 +43,23 @@
     });
 
     bus.on('creature:threat', (e) => {
-      if (e.level === 3 && threatLevel < 3) CF.audio.play('alarm');
       threatLevel = e.level;
       alert.classList.toggle('on', e.level >= 2);
-      CF.audio.droneLevel(e.level >= 2 ? 0.8 : 0.2);
     });
+    // Creature sounds come from the creatures themselves, panned to their hall.
+    bus.on('creature:step', (e) => CF.audio.creature(e.kind, e.stage, e.side, e.again));
+    bus.on('creature:leave', (e) => CF.audio.leave(e.kind, e.side));
     bus.on('creature:blackout', () => bus.emit('fx:flash', '#300'));
 
     bus.on('tick', (e) => {
       if (e.phase !== 'play') return;
-      if (Math.random() < GEIGER_PER_SEC[threatLevel] * e.dt) CF.audio.play('geiger');
+      if (!HEART_PER_SEC[threatLevel]) { heartIn = 0; return; }
+      heartIn -= e.dt;
+      if (heartIn <= 0) { CF.audio.play('heart'); heartIn = 1 / HEART_PER_SEC[threatLevel]; }
     });
 
     bus.on('phase:change', (e) => {
-      threatLevel = 0;
+      threatLevel = 0; heartIn = 0;
       alert.classList.remove('on');
       CF.audio.droneLevel(e.phase === 'play' ? 0.2 : 0);
       if (e.phase === 'win') { CF.audio.play('win'); showEnding(slots.ending, ENDINGS.win); }

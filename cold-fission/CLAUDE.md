@@ -6,7 +6,7 @@ The player spends one continuous 480-second run in a fusion reactor control room
 
 - Plain HTML and classic scripts on `window.CF`; no build tools, npm or ES modules. `index.html` must open over `file://`.
 - Player-visible text and code comments use English. The creatures appear only as silhouettes, sounds or sensor readings.
-- Game rules advance on `tick` game time, including `?speed=`. `requestAnimationFrame` is for drawing only (a minigame may animate itself in real time, because the support time limit around it runs on `tick`). Minigames never use the keys `1`, `2`, `A`, `D`: those are the cameras and shutters.
+- Game rules advance on `tick` game time, including `?speed=`. `requestAnimationFrame` is for drawing only (a minigame may animate itself in real time, because the support time limit around it runs on `tick`). Minigames never use the keys `1`, `2`, `A`, `D`: those are the cameras and shutters. Every minigame has a `tips` object; the first use in a run opens a modal that sets state `paused`, which stops the director's ticks. Creature sounds are organic (breath, footsteps, claws, growls, panned to the hall); never use beeps or alarm tones for creatures.
 - Prefix module CSS classes with `cam-`, `ctl-`, `tk-`, `bk-`, `bd-` or `fx-`. Avoid bare tag selectors and stage-wide styling.
 - Keep the 480-second ending and the current win/lose rules. Keep new work simple and tests focused.
 

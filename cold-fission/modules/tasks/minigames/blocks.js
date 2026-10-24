@@ -25,6 +25,15 @@
   CF.minigames.blocks = {
     id: 'blocks',
     title: 'CIRCUIT BLOCKS',
+    tips: {
+      goal: 'The power grid is jammed with loose circuit blocks. Fill a full row with no gaps to clear it and reroute the power.',
+      keys: [
+        '← → move the falling block. SPACE rotates it.',
+        '↓ drops it faster. ↑ drops it all the way down at once.',
+        'A row with no gaps disappears. Clear the number shown beside the board.',
+      ],
+      hint: 'If the stack reaches the top, the board resets, so you do not lose. Look for the gaps in the bottom rows first.',
+    },
     start(el, done, opts) {
       opts = opts || {};
       const goal = opts.rows || 1;
@@ -53,7 +62,7 @@
       const gn = el.querySelector('.bk-next').getContext('2d');
       const rowsEl = el.querySelector('.bk-rows'), msgEl = el.querySelector('.bk-msg');
 
-      let board, piece = null, next = null, bag = [], cleared = 0, acc = 0, lockWait = 0, soft = false, stopped = false, last = performance.now(), raf = 0;
+      let board, piece = null, next = null, bag = [], cleared = 0, acc = 0, lockWait = 0, freeze = 0, soft = false, stopped = false, last = performance.now(), raf = 0;
 
       const fresh = () => Array.from({ length: ROWS }, () => Array(COLS).fill(0));
       function resetBoard() {
@@ -79,17 +88,15 @@
       function spawn() {
         piece = next || makePiece();
         next = makePiece();
+        lockWait = 0;
         if (collide(piece.m, piece.x, piece.y)) {
-          while (collide(piece.m, piece.x, piece.y)) {
-            const top = board.findIndex((row) => row.some(Boolean));
-            if (top < 0) break;
-            board.splice(top, 1);
-            board.unshift(Array(COLS).fill(0));
-          }
-          msgEl.textContent = 'TOP ROWS CLEARED';
+          // The stack reached the top: start over from the opening board and pause briefly, instead of
+          // locking a fresh piece every frame.
+          resetBoard();
+          freeze = .9; acc = 0; soft = false;
+          msgEl.textContent = 'STACK FULL · RESET';
           bus.emit('sfx', 'deny');
         }
-        lockWait = 0;
       }
 
       function lock() {
@@ -108,14 +115,14 @@
         spawn();
       }
 
-      const move = (dx) => { if (!stopped && !collide(piece.m, piece.x + dx, piece.y)) { piece.x += dx; lockWait = 0; } };
+      const move = (dx) => { if (!stopped && freeze <= 0 && !collide(piece.m, piece.x + dx, piece.y)) { piece.x += dx; lockWait = 0; } };
       function rot() {
-        if (stopped) return;
+        if (stopped || freeze > 0) return;
         const m = rotateCW(piece.m);
         for (const dx of [0, -1, 1, -2, 2]) { if (!collide(m, piece.x + dx, piece.y)) { piece.m = m; piece.x += dx; lockWait = 0; return; } }
       }
       function step() { if (!collide(piece.m, piece.x, piece.y + 1)) { piece.y++; lockWait = 0; } }
-      function hardDrop() { if (stopped) return; while (!collide(piece.m, piece.x, piece.y + 1)) piece.y++; lock(); }
+      function hardDrop() { if (stopped || freeze > 0) return; while (!collide(piece.m, piece.x, piece.y + 1)) piece.y++; lock(); }
 
       function cell(ctx, x, y, color, s) {
         ctx.fillStyle = color;
@@ -145,6 +152,12 @@
         if (stopped) return;
         raf = requestAnimationFrame(frame);
         const dt = Math.min((now - last) / 1000, 0.25); last = now;
+        if (freeze > 0) {
+          freeze -= dt;
+          if (freeze <= 0) { msgEl.textContent = ''; acc = 0; }
+          draw();
+          return;
+        }
         acc += dt;
         const every = soft ? 0.05 : dropEvery;
         while (acc >= every && !stopped) { acc -= every; step(); }

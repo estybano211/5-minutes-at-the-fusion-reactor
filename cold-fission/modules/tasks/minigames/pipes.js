@@ -7,29 +7,40 @@
 
   CF.minigames.pipes = {
     id: 'pipes', title: 'FUEL PIPELINE',
+    tips: {
+      goal: 'The fuel line is broken into loose pipe pieces. Connect the SOURCE on the left to the FUEL CELL on the right.',
+      keys: [
+        'Move the highlight with the ARROW KEYS.',
+        'Press SPACE (or click a tile) to rotate that pipe a quarter turn.',
+        'Pipes that are already connected to the source turn teal. Keep going until the teal path reaches the cell.',
+      ],
+      hint: 'Rotate the tile next to the source first, then follow the teal path one tile at a time.',
+    },
     start(el, done, opts) {
       opts = opts || {};
       const level = Math.max(1, Math.min(3, opts.difficulty || 1));
       const cols = [0, 3, 4, 5][level], rows = [0, 3, 4, 4][level];
       const cells = Array(cols * rows).fill(0), masks = Array(cols * rows).fill(0);
       const at = (x, y) => y * cols + x;
+      // The route always jogs up or down at least once (twice on harder levels), so it is never a straight line.
+      const jogAt = new Set(), wanted = level === 1 ? 1 : 2, route = [];
+      while (jogAt.size < wanted) jogAt.add((Math.random() * (cols - 1)) | 0);
       let y = (Math.random() * rows) | 0;
       const source = y;
-      let current = at(0, y);
-      masks[current] |= 8;
       for (let x = 0; x < cols; x++) {
-        current = at(x, y);
+        let current = at(x, y);
         if (x) { masks[current] |= 8; masks[at(x - 1, y)] |= 2; }
-        if (x < cols - 1) {
-          const step = Math.random() < (level === 1 ? .25 : .45) ? (Math.random() < .5 ? -1 : 1) : 0;
-          const ny = Math.max(0, Math.min(rows - 1, y + step));
-          if (ny !== y) {
-            masks[current] |= ny > y ? 4 : 1;
-            masks[at(x, ny)] |= ny > y ? 1 : 4;
-            y = ny; current = at(x, y);
-          }
+        route.push(current);
+        if (x < cols - 1 && jogAt.has(x)) {
+          const options = [y - 1, y + 1].filter((v) => v >= 0 && v < rows);
+          const ny = options[(Math.random() * options.length) | 0];
+          masks[current] |= ny > y ? 4 : 1;
+          masks[at(x, ny)] |= ny > y ? 1 : 4;
+          y = ny; current = at(x, y);
+          route.push(current);
         }
       }
+      masks[at(0, source)] |= 8;
       const target = y;
       masks[at(cols - 1, target)] |= 2;
       for (let i = 0; i < cells.length; i++) {
@@ -80,6 +91,7 @@
         render();
       }
       function onClick(e) { const tile = e.target.closest('[data-i]'); if (tile && board.contains(tile)) turn(Number(tile.dataset.i)); }
+      for (let guard = 0; guard < 12 && trace(); guard++) { const i = route[(Math.random() * route.length) | 0]; cells[i] = rotate(cells[i]); }
       trace(); render();
       document.addEventListener('keydown', onKey); board.addEventListener('click', onClick);
       return { cancel() { stopped = true; document.removeEventListener('keydown', onKey); board.removeEventListener('click', onClick); } };

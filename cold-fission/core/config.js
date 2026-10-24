@@ -14,34 +14,34 @@
   // does some work, and gets stuck at every obstacle until the player helps over the intercom.
   //   kind     'item' (bring something back) or 'op' (do something on site)
   //   travel   seconds to get there        work   seconds of work before each obstacle and after the last one
-  //   requires ids that must be done first bonus  'battery' | null, a spare the crew finds on the way
+  //   requires ids that must be done first bonus  'power' (+25 power) | 'battery' (-15% drain) | null, found on the way back
   //   stages   one obstacle each; `game` is the minigame id that solves it, `opts` is passed to that minigame
   const OBJECTIVES = [
-    { id: 'navcore', name: 'Nav Core', kind: 'item', place: 'Navigation deck', travel: 38, work: 22, requires: [], bonus: null,
+    { id: 'navcore', name: 'Nav Core', kind: 'item', place: 'Navigation deck', travel: 22, work: 11, requires: [], bonus: null,
       stages: [
         { say: 'Debris is hitting the core cage. Cover me!', game: 'shield', opts: { difficulty: 1 } },
         { say: 'Sparks are flying at the cage. Keep them off me!', game: 'shield', opts: { difficulty: 2 } },
       ] },
-    { id: 'fuelcell', name: 'Fuel Cell', kind: 'item', place: 'Engine bay', travel: 45, work: 22, requires: [], bonus: 'battery',
+    { id: 'fuelcell', name: 'Fuel Cell', kind: 'item', place: 'Engine bay', travel: 25, work: 11, requires: [], bonus: 'power',
       stages: [
         { say: 'The fuel line is broken. Join the pipes for me.', game: 'pipes', opts: { difficulty: 1 } },
         { say: 'Another fuel line is split. Patch this one too.', game: 'pipes', opts: { difficulty: 2 } },
       ] },
-    { id: 'coupler', name: 'Thruster Coupler', kind: 'item', place: 'Cargo hold', travel: 32, work: 22, requires: [], bonus: null,
+    { id: 'coupler', name: 'Thruster Coupler', kind: 'item', place: 'Cargo hold', travel: 18, work: 11, requires: [], bonus: null,
       stages: [
         { say: 'The coupler release keeps changing. Hit the prompts!', game: 'mash', opts: { difficulty: 1 } },
         { say: 'The final catches are moving fast. Keep up!', game: 'mash', opts: { difficulty: 2 } },
       ] },
-    { id: 'purge', name: 'Purge coolant loop', kind: 'op', place: 'Reactor annex', travel: 45, work: 19, requires: [], bonus: 'battery',
+    { id: 'purge', name: 'Purge coolant loop', kind: 'op', place: 'Reactor annex', travel: 25, work: 10, requires: [], bonus: 'battery',
       stages: [
-        { say: 'Coolant is moving. Place the pipe pieces ahead of it!', game: 'flow', opts: { difficulty: 1 } },
-        { say: 'The second loop is live. Guide the flow through.', game: 'flow', opts: { difficulty: 2 } },
+        { say: 'Coolant pressure is dropping. Pump the tubes up to the green band!', game: 'flow', opts: { difficulty: 1 } },
+        { say: 'The second loop is leaking. Keep every tube in the green!', game: 'flow', opts: { difficulty: 2 } },
       ] },
-    { id: 'power', name: 'Reroute hangar power', kind: 'op', place: 'Power junction', travel: 32, work: 19, requires: [], bonus: null,
+    { id: 'power', name: 'Reroute hangar power', kind: 'op', place: 'Power junction', travel: 18, work: 10, requires: [], bonus: null,
       stages: [
         { say: 'The power grid is jammed. Clear a row to reroute it.', game: 'blocks', opts: { rows: 1, garbage: 2, difficulty: 1 } },
       ] },
-    { id: 'ignition', name: 'Prime the ignition', kind: 'op', place: 'Flight deck', travel: 26, work: 19, requires: ['fuelcell', 'power'], bonus: null,
+    { id: 'ignition', name: 'Prime the ignition', kind: 'op', place: 'Flight deck', travel: 15, work: 10, requires: ['fuelcell', 'power'], bonus: null,
       stages: [
         { say: 'Set the ignition switches in the right order.', game: 'switches', opts: { difficulty: 2 } },
         { say: 'Final ignition check. Set every lever now!', game: 'switches', opts: { difficulty: 3 } },

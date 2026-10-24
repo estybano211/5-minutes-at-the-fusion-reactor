@@ -51,6 +51,7 @@
   setInterval(() => {
     if (!running) return;
     const now = performance.now();
+    if (S.get('paused')) { last = now; return; }   // a modal (minigame tips) freezes the whole run
     const real = Math.min((now - last) / 1000, 0.5);   // a hidden tab effectively pauses the game
     last = now;
     const dt = real * cfg.speed;

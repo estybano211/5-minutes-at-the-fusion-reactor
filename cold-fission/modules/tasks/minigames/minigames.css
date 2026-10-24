@@ -1,8 +1,8 @@
 /* Compact CRT panels for the six support minigames. */
 .sh, .pp, .ms, .fl, .sw { width: 400px; max-width: 100%; color: var(--amber); text-align: center; }
 .sh-instruction, .pp-instruction, .ms-instruction, .fl-instruction, .sw-instruction { font-size: 11px; color: var(--amber-dim); line-height: 1.25; margin-bottom: 7px; }
-.sh-pad [data-dir], .ms-pad [data-key], .pp-tile, .fl-tile, .sw-toggle, .sw-notch { background: #0a1112; color: var(--amber); border: 2px solid var(--line); font-family: var(--font-display); cursor: pointer; }
-.sh-pad [data-dir]:hover, .ms-pad [data-key]:hover, .pp-tile:hover, .fl-tile:hover, .sw-toggle:hover, .sw-notch:hover { border-color: var(--amber); }
+.sh-pad [data-dir], .ms-pad [data-key], .pp-tile, .sw-toggle, .sw-notch { background: #0a1112; color: var(--amber); border: 2px solid var(--line); font-family: var(--font-display); cursor: pointer; }
+.sh-pad [data-dir]:hover, .ms-pad [data-key]:hover, .pp-tile:hover, .sw-toggle:hover, .sw-notch:hover { border-color: var(--amber); }
 
 .sh-meter { width: 320px; height: 9px; margin: 0 auto 5px; border: 1px solid var(--line); background: #050909; }
 .sh-meter i { display: block; width: 0; height: 100%; background: var(--teal); }
@@ -14,15 +14,15 @@
 .pp-tile { position: relative; width: 44px; height: 44px; padding: 0; }
 .pp-selected { border-color: var(--amber); }
 .pp-lit { background: #123232; }
-.pp-source::before, .fl-source::before { content: '▶'; position: absolute; left: -17px; top: 10px; color: var(--teal); font: 17px var(--font-display); }
-.pp-drain::after, .fl-drain::after { content: '▶'; position: absolute; right: -17px; top: 10px; color: var(--amber); font: 17px var(--font-display); }
-.pp-center, .pp-arm, .fl-center, .fl-arm { position: absolute; display: block; background: var(--amber); }
-.pp-lit .pp-center, .pp-lit .pp-arm, .fl-wet .fl-center, .fl-wet .fl-arm { background: var(--teal); }
-.pp-center, .fl-center { width: 12px; height: 12px; left: calc(50% - 6px); top: calc(50% - 6px); }
-.pp-arm-0, .fl-arm-0 { width: 12px; height: 17px; left: calc(50% - 6px); top: 0; }
-.pp-arm-1, .fl-arm-1 { width: 17px; height: 12px; right: 0; top: calc(50% - 6px); }
-.pp-arm-2, .fl-arm-2 { width: 12px; height: 17px; left: calc(50% - 6px); bottom: 0; }
-.pp-arm-3, .fl-arm-3 { width: 17px; height: 12px; left: 0; top: calc(50% - 6px); }
+.pp-source::before { content: '▶'; position: absolute; left: -17px; top: 10px; color: var(--teal); font: 17px var(--font-display); }
+.pp-drain::after { content: '▶'; position: absolute; right: -17px; top: 10px; color: var(--amber); font: 17px var(--font-display); }
+.pp-center, .pp-arm { position: absolute; display: block; background: var(--amber); }
+.pp-lit .pp-center, .pp-lit .pp-arm { background: var(--teal); }
+.pp-center { width: 12px; height: 12px; left: calc(50% - 6px); top: calc(50% - 6px); }
+.pp-arm-0 { width: 12px; height: 17px; left: calc(50% - 6px); top: 0; }
+.pp-arm-1 { width: 17px; height: 12px; right: 0; top: calc(50% - 6px); }
+.pp-arm-2 { width: 12px; height: 17px; left: calc(50% - 6px); bottom: 0; }
+.pp-arm-3 { width: 17px; height: 12px; left: 0; top: calc(50% - 6px); }
 .pp-status { font-family: var(--font-display); color: var(--teal); font-size: 19px; letter-spacing: .08em; }
 
 .ms-track { width: 350px; max-width: 100%; height: 58px; position: relative; border: 2px solid var(--line); margin: 13px auto 8px; background: repeating-linear-gradient(90deg, #111a1b 0 15px, #0b1112 15px 30px); }
@@ -36,18 +36,26 @@
 .ms-pad [data-key] { min-width: 55px; height: 35px; padding: 0 5px; font-size: 25px; }
 .ms-shake .ms-prompt { color: var(--danger); transform: translateX(4px); }
 
-.fl-board { display: grid; grid-template-columns: repeat(var(--fl-cols), 41px); gap: 3px; justify-content: center; margin: 8px auto; }
-.fl-tile { width: 41px; height: 41px; position: relative; padding: 0; }
-.fl-route { border-style: dashed; border-color: var(--amber-dim); }
-.fl-target, .fl-selected { border-style: solid; border-color: var(--amber); }
-.fl-wet { background: #123232; border-color: var(--teal); border-style: solid; }
-.fl-footer { display: flex; justify-content: space-between; width: 306px; max-width: 100%; margin: 5px auto; font-family: var(--font-display); font-size: 19px; }
-.fl-state { color: var(--teal); }
-.fl-queue { display: flex; justify-content: center; align-items: center; gap: 9px; margin-top: 5px; font-family: var(--font-display); font-size: 18px; }
-.fl-preview { display: block; position: relative; width: 28px; height: 28px; border: 1px solid var(--line); background: #0a1112; }
-.fl-preview .fl-center { width: 8px; height: 8px; left: calc(50% - 4px); top: calc(50% - 4px); }
-.fl-preview .fl-arm-0, .fl-preview .fl-arm-2 { width: 8px; height: 11px; left: calc(50% - 4px); }
-.fl-preview .fl-arm-1, .fl-preview .fl-arm-3 { width: 11px; height: 8px; top: calc(50% - 4px); }
+/* coolant loop: leaking tubes, pump them into the green band */
+.fl-tubes { display: flex; justify-content: center; gap: 22px; margin: 4px auto 6px; }
+.fl-tube { position: relative; width: 62px; text-align: center; cursor: pointer; user-select: none; touch-action: none; }
+.fl-glass { position: relative; height: 128px; border: 3px solid var(--line); border-top-width: 6px; background: #070e10; overflow: hidden; }
+.fl-selected .fl-glass { border-color: var(--amber); }
+.fl-band { position: absolute; left: 0; right: 0; background: rgba(127, 207, 138, .3); border-top: 2px solid var(--ok); border-bottom: 2px solid var(--ok); }
+.fl-level { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(180deg, #8fe6dc, #3f8f88); opacity: .92; }
+.fl-green .fl-level { background: linear-gradient(180deg, #a6f0b4, #4f9f5e); }
+.fl-high .fl-level { background: linear-gradient(180deg, #f0c860, #b4782a); }
+.fl-name { margin-top: 3px; font-family: var(--font-display); font-size: 22px; letter-spacing: .1em; color: var(--amber-dim); }
+.fl-selected .fl-name { color: var(--amber); }
+.fl-pump { height: 18px; font-size: 15px; line-height: 18px; color: var(--teal); visibility: hidden; }
+.fl-pumping .fl-pump { visibility: visible; animation: fl-pump .35s steps(2) infinite; }
+.fl-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 300px; max-width: 100%; margin: 4px auto 0; font-family: var(--font-display); font-size: 19px; letter-spacing: .06em; }
+.fl-state { color: var(--teal); text-align: left; }
+.fl-state.fl-warn { color: var(--danger); }
+.fl-hold { flex: none; width: 90px; height: 10px; border: 2px solid var(--line); }
+.fl-hold i { display: block; width: 0; height: 100%; background: var(--ok); }
+@keyframes fl-pump { 50% { transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .fl-pumping .fl-pump { animation: none; } }
 
 .sw-panel { display: grid; grid-template-columns: repeat(4, 88px); gap: 8px; justify-content: center; }
 .sw-control { min-height: 93px; border: 2px solid var(--line); padding: 4px 2px; background: #0a1112; }

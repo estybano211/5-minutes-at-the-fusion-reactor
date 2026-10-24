@@ -7,10 +7,19 @@
 
   CF.minigames.mash = {
     id: 'mash', title: 'THRUSTER COUPLER',
+    tips: {
+      goal: 'The coupler release is jammed. Enter 12 key prompts to slide the coupler into its socket.',
+      keys: [
+        'A big key prompt shows what to press: an ARROW KEY or SPACE.',
+        'Press it, and the next prompt appears. The prompts keep changing.',
+        'A wrong key shakes the prompt, and on the harder rounds it pushes the coupler back one step.',
+      ],
+      hint: 'The small row under the prompt shows what comes next, so you can read ahead.',
+    },
     start(el, done, opts) {
       opts = opts || {};
       const level = Math.max(1, Math.min(3, opts.difficulty || 1));
-      const goal = [0, 14, 18, 22][level];
+      const goal = 12;                                  // always 12 correct inputs
       const pool = level === 1 ? 4 : 5;
       el.innerHTML = '<div class="ms"><div class="ms-instruction">Press the shown arrow or Space. Keep the coupler moving.</div><div class="ms-track"><div class="ms-coupler"></div><div class="ms-socket">SOCKET</div></div><div class="ms-main"><span class="ms-prompt"></span><span class="ms-count"></span></div><div class="ms-next"></div><div class="ms-pad">' + LABELS.slice(0, pool).map((s, i) => '<button data-key="' + i + '">' + s + '</button>').join('') + '</div></div>';
       const root = el.querySelector('.ms'), coupler = el.querySelector('.ms-coupler');
@@ -31,10 +40,10 @@
       }
       function press(n) {
         if (stopped) return;
-        if (n !== queue[0]) { shake = .18; bus.emit('sfx', 'deny'); render(); return; }
+        if (n !== queue[0]) { shake = .18; if (level > 1) progress = Math.max(0, progress - 1); bus.emit('sfx', 'deny'); render(); return; }
         progress += 1; correct++;
         if (doubleLeft) doubleLeft--;
-        if (level === 3 && correct % 6 === 0 && correct < goal - 2) { doubleLeft = 2; doubleTime = 1.3; }
+        if (level === 3 && correct === 6) { doubleLeft = 2; doubleTime = 1.6; }
         bus.emit('sfx', 'click');
         queue.shift(); makeNext();
         if (progress >= goal) { stopped = true; render(); bus.emit('sfx', 'chime'); done(true); return; }
@@ -45,7 +54,6 @@
       function frame(now) {
         if (stopped) return;
         const dt = Math.min(.05, (now - last) / 1000); last = now;
-        progress = Math.max(0, progress - dt * [0, .15, .19, .22][level]);
         if (doubleLeft) {
           doubleTime -= dt;
           if (doubleTime <= 0) { doubleLeft = 0; progress = Math.max(0, progress - .5); }

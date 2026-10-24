@@ -17,7 +17,7 @@ URL options: `?speed=5` advances game time five times faster; `?god=1` prevents 
 
 ## Play
 
-Select an idle crew member on the Escape Board, then an available objective. Each trip has travel, work and one or two obstacles. At an obstacle, the crew member asks for support. Click **HELP** and solve the matching minigame before its timer expires. Other crew continue working and other requests keep losing patience while you solve it. A failed or ignored request costs 1 HP and resets that request; completed objective progress remains. At 0 HP the crew member dies. Fuel Cell and Purge coolant loop each grant a battery when completed. Prime the ignition requires Fuel Cell and Reroute hangar power.
+Select an idle crew member on the Escape Board, then an available objective. Each trip has travel, work and one or two obstacles. At an obstacle, the crew member asks for support. Click **HELP** and solve the matching minigame before its timer expires. The first time each minigame appears in a run, a tips window opens and **the whole run is paused** (the director sends no ticks, and the shutter and camera keys are ignored) until the player presses Enter or Space. Other crew continue working and other requests keep losing patience while you solve it. A failed or ignored request costs 1 HP and resets that request; completed objective progress remains. At 0 HP the crew member dies. Fuel Cell adds 25 power to the pool when it is finished; Purge coolant loop grants a battery (drain ×0.85). Prime the ignition requires Fuel Cell and Reroute hangar power.
 
 **Win:** complete all six objectives and press LAUNCH at any time, or finish the checklist by 01:00. **Lose:** a creature enters, all crew die, or 01:00 arrives before the checklist is complete.
 
@@ -25,10 +25,10 @@ The first creature appears at about 45 seconds. Level 1 has only walkers and one
 
 | Creature | Tell | Counter |
 |---|---|---|
-| Walker | Upright silhouette and motion signal | Close its hall shutter until it leaves |
-| Crawler | Low silhouette and LOW MOTION signal, usually east | React quickly; a brief seal repels it |
-| Brute | Broad silhouette, HEAVY IMPACT and pounding, usually west | Keep the shutter sealed for 5 seconds |
-| Stalker | Feed static and flickering lamps, SIGNAL GHOST on sensor | Trust the sensor and seal its hall |
+| Walker | Stooped humanoid with long arms; slow footsteps and a groan; motion signal | Close its hall shutter until it leaves |
+| Crawler | Low six-legged shape with red eyes that skitters in bursts; clicking claws; LOW MOTION signal, usually east | React quickly; a brief seal repels it |
+| Brute | Hulking shape with amber eyes; heavy footfalls, a growl, HEAVY IMPACT and a shaking door, usually west | Keep the shutter sealed for 5 seconds |
+| Stalker | Tall thin figure seen only in glitches with colour ghosting; whispers and a faint wail; static, flickering lamps and SIGNAL GHOST on the sensor | Trust the sensor and seal its hall |
 
 West is heavy: immediate protection, 3.2 power/s while closed, and a 0.7-second latch before reopening. Its feed is clear. East is light: 1.8 power/s, but its shutter takes 0.8 seconds to protect you; its feed is darker and noisier. The control buttons show these differences. Power is one pool for the whole run. Base drain is 0.18/s, each battery multiplies drain by 0.85, and both shutters open add 0.32/s recharge. At zero power, cameras fail and shutters open for 8 seconds; creatures move 1.6 times faster. Power returns at 20.
 
@@ -44,14 +44,14 @@ West is heavy: immediate protection, 3.2 power/s while closed, and a 0.7-second 
 
 Creature base move ranges in seconds: walker 10–13, crawler 5.5–7, brute 12–15, stalker 8–11. Base grace windows: 5.4, 4.2, 6.0 and 5.0 seconds respectively. A walker holds against a closed shutter for 2.5 seconds, crawler 1.4, brute 5, stalker 3. The first appearance is at 45 seconds; subsequent spawn gaps are 55–70 / 43–55 / 40–52 seconds by alert level.
 
-Objective travel and work segments are in `core/config.js`. Their aggregate crew time is 568 seconds before support puzzles or injury. A focused synthetic run that solved each request in 8 seconds and dispatched available work immediately finished at 293 seconds with four crew and 411 seconds with two; one crew could not finish by 480 seconds. This checks the schedule, not human puzzle difficulty or a full playthrough.
+Objective travel and work segments are in `core/config.js`. Their aggregate crew time is about 302 seconds before support puzzles or injury (an objective with N stages has N+1 work segments plus the trip). This is a schedule number only; human puzzle times and a full playthrough have not been measured.
 
 | Objective | Stages | Minigame |
 |---|---:|---|
 | Nav Core | 2 | `shield`, difficulty 1 / 2 |
 | Fuel Cell | 2 | `pipes`, difficulty 1 / 2 |
 | Thruster Coupler | 2 | `mash`, difficulty 1 / 2 |
-| Purge coolant loop | 2 | `flow`, difficulty 1 / 2 |
+| Purge coolant loop | 2 | `flow`: leaking tubes, pump each into the green band, difficulty 1 / 2 |
 | Reroute hangar power | 1 | `blocks`, rows 1, garbage 2 |
 | Prime the ignition | 2 | `switches`, difficulty 2 / 3 |
 
@@ -68,6 +68,7 @@ Classic scripts attach to `window.CF`. `core/bus.js` provides `CF.bus`, `CF.stat
 | `objectives` | Checklist `{id,name,kind,place,requires,stagesTotal,progress,done,by,locked}` | Tasks |
 | `power` | Continuous 0–100 pool | Cameras |
 | `battery` | Battery count; each reduces drain by 15% | Tasks |
+| `paused` | True while a minigame tip is open: no ticks are sent and the camera and shutter keys are ignored | Tasks |
 
 | Event | Payload | Purpose |
 |---|---|---|
@@ -84,6 +85,10 @@ Classic scripts attach to `window.CF`. `core/bus.js` provides `CF.bus`, `CF.stat
 | `creature:caught` | `{by,side}` | Core ends the run |
 | `dev:spawn` | `{kind}` | Dev panel asks Cameras to spawn a threat |
 | `intercom:say` | `{who,text,static?}` | Show a crew or system line |
+| `creature:step` | `{kind,side,stage,again}` | A creature spawned, moved closer (stage 1 far, 2 near, 3 at the shutter) or `again` repeats at the door; Atmosphere plays its sound, panned to the hall |
+| `creature:leave` | `{kind,side}` | A creature gave up at a sealed shutter |
+| `power:gain` | `{amount,by}` | Tasks asks Cameras to add power to the pool (Fuel Cell: +25) |
+| `game:pause` | `{paused}` | A modal tip opened or closed; `paused` state also set |
 | `sfx`, `fx:flash` | Sound name or CSS color | Sound and screen flash |
 
-Minigames register `CF.minigames[id] = { id, title, start(el, done, opts) }`; `start` returns `{ cancel() }`. Call `done(true)` on success. Tasks owns the time limit and falls back to the first registered minigame if a stage ID is unavailable. `opts` always includes `day` and `difficulty`. Minigames use arrows, Space, Enter and mouse; `1`, `2`, `A`, `D` are reserved globally. The additional minigame files linked in `index.html` and `dev/tasks.html` are supplied by the parallel minigame work.
+Minigames register `CF.minigames[id] = { id, title, tips, start(el, done, opts) }`; `tips` is `{ goal, keys: [..], hint }` and is shown in the pause window the first time that minigame appears in a run. `start` returns `{ cancel() }`. Call `done(true)` on success. Tasks owns the time limit and falls back to the first registered minigame if a stage ID is unavailable. `opts` always includes `day` and `difficulty`. Minigames use arrows, Space, Enter and mouse; `1`, `2`, `A`, `D` are reserved globally.

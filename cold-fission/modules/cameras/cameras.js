@@ -21,12 +21,13 @@
   let root, ctl, g, ui = {};
   let cam = 0, active = false, blackout = 0, drawAt = 0, switchFx = 0;
   let doors = { L: { closed: false, progress: 0, age: 0 }, R: { closed: false, progress: 0, age: 0 } };
-  let monsters = [], nextSpawn = 45, overlapAt = Infinity, runTime = 0, drain = 0, paintKey = '', threatKey = '';
+  let monsters = [], nextSpawn = 45, overlapAt = Infinity, runTime = 0, drain = 0, restartExtra = 0, paintKey = '', threatKey = '';
 
   const sealed = (side) => !blackout && doors[side].closed && (side === 'L' || doors[side].progress >= 1);
   const nearby = (side) => monsters.filter((m) => m.side === side).sort((a, b) => b.stage - a.stage)[0];
   const knocking = (side) => monsters.some((m) => m.side === side && m.stage === 3 && !sealed(side));
   const level = () => Math.max(0, ...monsters.map((m) => m.stage));
+  const stepEvent = (m, again) => bus.emit('creature:step', { kind: m.kind, side: m.side, stage: m.stage, again: !!again });
 
   function threat() {
     const threats = monsters.map((m) => ({ kind: m.kind, side: m.side, level: m.stage }));
@@ -38,7 +39,7 @@
   }
 
   function reset() {
-    active = true; blackout = 0; monsters = []; nextSpawn = 45; overlapAt = Infinity; runTime = 0; drain = 0;
+    active = true; blackout = 0; monsters = []; nextSpawn = 45; overlapAt = Infinity; runTime = 0; drain = 0; restartExtra = 0;
     doors = { L: { closed: false, progress: 0, age: 0 }, R: { closed: false, progress: 0, age: 0 } };
     S.set('power', 100);
     threat(); refresh();
@@ -57,7 +58,7 @@
   }
 
   function toggle(side) {
-    if (!active || blackout) return;
+    if (!active || blackout || S.get('paused')) return;
     const d = doors[side], spec = DOORS[side];
     if (d.closed && d.age < spec.latch) { toast(spec.name + ' SHUTTER LATCHED'); bus.emit('sfx', 'deny'); return; }
     d.closed = !d.closed; d.age = 0;
@@ -67,7 +68,7 @@
   }
 
   function selectCam(i) {
-    if (i === cam) return;
+    if (i === cam || S.get('paused')) return;
     cam = i; switchFx = 0.25;
     bus.emit('sfx', 'click'); refresh();
   }
@@ -78,9 +79,10 @@
     let side = p.side || (Math.random() < 0.5 ? 'L' : 'R');
     if (monsters.some((m) => m.side === side)) side = side === 'L' ? 'R' : 'L';
     if (monsters.some((m) => m.side === side)) return;
-    monsters.push({ kind: kind, side: side, stage: 1, timer: 0, held: 0, exposed: 0 });
+    monsters.push({ kind: kind, side: side, stage: 1, timer: 0, held: 0, exposed: 0, seed: Math.random() * 10, snd: 0 });
     const m = monsters[monsters.length - 1];
     m.timer = moveTime(m, S.get('day'));
+    stepEvent(m);
     if (!extra) {
       nextSpawn = t + (S.get('day') === 1 ? rand(55, 70) : S.get('day') === 2 ? rand(43, 55) : rand(40, 52));
       overlapAt = S.get('day') === 3 && Math.random() < 0.2 ? t + rand(12, 16) : Infinity;
@@ -99,6 +101,15 @@
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
+  function powerGain(e) {
+    if (!active) return;
+    if (blackout) restartExtra += e.amount;
+    else S.set('power', clamp(S.get('power') + e.amount, 0, 100));
+    toast('+' + e.amount + ' POWER' + (e.by ? ' · ' + e.by.toUpperCase() : ''));
+    bus.emit('sfx', 'chime');
+    paintDoors();
+  }
+
   function powerOut() {
     blackout = POWER.blackout; drain = 0;
     ['L', 'R'].forEach((s) => { doors[s].closed = false; doors[s].progress = 0; });
@@ -112,7 +123,7 @@
     runTime = e.t;
     if (blackout) {
       blackout = Math.max(0, blackout - dt);
-      if (!blackout) { S.set('power', POWER.restart); toast('POWER RESTORED'); bus.emit('sfx', 'beep'); refresh(); }
+      if (!blackout) { S.set('power', Math.min(100, POWER.restart + restartExtra)); restartExtra = 0; toast('POWER RESTORED'); bus.emit('sfx', 'beep'); refresh(); }
     } else {
       ['L', 'R'].forEach((s) => {
         const d = doors[s], p = DOORS[s];
@@ -143,18 +154,23 @@
         m.timer -= dt * (blackout ? 1.6 : 1);
         if (m.timer <= 0) {
           m.stage++; m.timer = moveTime(m, day);
-          if (m.stage === 3) { m.held = 0; m.exposed = 0; bus.emit('sfx', 'knock'); }
-          else if (m.stage === 2) bus.emit('sfx', 'static');
+          if (m.stage === 3) { m.held = 0; m.exposed = 0; m.snd = 1.4; }
+          stepEvent(m);
           threat(); refresh();
         }
       } else if (sealed(m.side)) {
         m.exposed = 0; m.held += dt;
+        m.snd -= dt;
+        if (m.snd <= 0) { m.snd = m.kind === 'brute' ? 1.1 : m.kind === 'crawler' ? 1.5 : 2.2; stepEvent(m, true); }
         if (m.held >= spec.hold) {
           monsters.splice(monsters.indexOf(m), 1);
-          bus.emit('sfx', 'knock'); threat(); refresh();
+          bus.emit('creature:leave', { kind: m.kind, side: m.side });
+          threat(); refresh();
         }
       } else {
         m.held = 0; m.exposed += dt;
+        m.snd -= dt;
+        if (m.snd <= 0) { m.snd = m.kind === 'brute' ? 1.6 : 2.4; stepEvent(m, true); }
         const grace = spec.grace * (day === 1 ? 1 : day === 2 ? 0.92 : 0.84);
         if (m.exposed >= grace) {
           if (CF.config.god) { monsters.splice(monsters.indexOf(m), 1); threat(); refresh(); }
@@ -172,18 +188,123 @@
   const poly = (pts) => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); };
   const line = (x1, y1, x2, y2) => { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
 
-  function silhouette(m, t) {
+  const TAU = Math.PI * 2;
+  const limb = (pts, w) => { g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.stroke(); };
+  const blob = (cx, cy, rx, ry, rot) => { g.beginPath(); g.ellipse(cx, cy, rx, ry, rot || 0, 0, TAU); g.fill(); };
+
+  /* Each figure is drawn in local units with its feet at (0,0), facing the camera, and returns where its eyes are.
+     The shapes are drawn twice (a faint rim light, then the black body), so only the outline reads. */
+  const FIGURES = {
+    // Upright and faceless: a stooped head, a swaying torso and arms that hang past the knees.
+    walker(t, s) {
+      const sway = Math.sin(t * 2.1 + s) * 3, stride = Math.sin(t * 3.4 + s);
+      limb([[-5, -34], [-6 + stride * 4, -17], [-5 + stride * 6, 0]], 6);
+      limb([[5, -34], [6 - stride * 4, -17], [5 - stride * 6, 0]], 6);
+      g.beginPath(); g.moveTo(-9, -34); g.lineTo(9, -34); g.lineTo(12 + sway * .3, -63); g.lineTo(-12 + sway * .3, -63); g.closePath(); g.fill();
+      limb([[sway * .3, -62], [sway * .8 + 2, -68]], 5);
+      blob(sway * .8 + 3, -72, 6, 7.5, .25);
+      limb([[-11 + sway * .3, -60], [-16 + sway, -42], [-15 + sway * 1.5, -21]], 4.5);
+      limb([[11 + sway * .3, -60], [16 + sway, -42], [15 + sway * 1.5, -21]], 4.5);
+      return { eyes: [], color: '', top: -80 };
+    },
+    // Low and wide: six jointed legs, two forelegs and a cluster of red eyes.
+    crawler(t, s) {
+      const k = t * 11 + s;
+      [-1, 1].forEach((d) => {
+        for (let i = 0; i < 3; i++) {
+          const ph = Math.sin(k + i * 2.1 + (d > 0 ? 1.6 : 0)) * 3;
+          limb([[d * 9, -11], [d * (20 + i * 5), -27 + i * 2], [d * (30 + i * 6) + ph, 0]], 2.4);
+        }
+        limb([[d * 6, -9], [d * 12 + Math.sin(k * .8) * 2, -4], [d * 10, 1]], 3);
+      });
+      blob(0, -12, 14, 9);
+      blob(0, -19, 6, 6);
+      return { eyes: [[-3, -20], [3, -20], [-1.2, -23.5], [1.2, -23.5]], color: '#ff3b3b', top: -30 };
+    },
+    // Heavy: shoulders wider than it is tall, a head sunk between them and fists that almost reach the floor.
+    brute(t, s) {
+      const br = Math.sin(t * 1.5 + s) * 1.6, swing = Math.sin(t * 1.2 + s) * 3;
+      limb([[-10, -32], [-11, -16], [-12, 0]], 11);
+      limb([[10, -32], [11, -16], [12, 0]], 11);
+      g.beginPath(); g.moveTo(-18, -30); g.lineTo(18, -30); g.lineTo(27, -62 + br); g.lineTo(-27, -62 + br); g.closePath(); g.fill();
+      blob(0, -62 + br, 25, 10);
+      blob(0, -69 + br, 8.5, 7.5);
+      limb([[-25, -60 + br], [-36 + swing, -42], [-34 + swing, -20]], 11);
+      limb([[25, -60 + br], [36 - swing, -42], [34 - swing, -20]], 11);
+      blob(-34 + swing, -14, 8, 9); blob(34 - swing, -14, 8, 9);
+      return { eyes: [[-3.5, -70 + br], [3.5, -70 + br]], color: '#e8a030', top: -78 };
+    },
+    // Too tall and too thin: a long neck, a tilted head and fingers that trail on the floor.
+    stalker(t, s) {
+      const sw = Math.sin(t * 1.3 + s) * 4, tilt = Math.sin(t * .9 + s) * .35;
+      limb([[-3, -50], [-4, -25], [-3, 0]], 3);
+      limb([[3, -50], [4, -25], [3, 0]], 3);
+      g.beginPath(); g.moveTo(-5, -50); g.lineTo(5, -50); g.lineTo(6.5, -82); g.lineTo(-6.5, -82); g.closePath(); g.fill();
+      limb([[0, -82], [sw * .5, -93]], 3);
+      blob(sw * .5, -99, 4.2, 7.5, tilt);
+      limb([[-6, -80], [-13 + sw, -52], [-11 + sw * 1.4, -14]], 2.4);
+      limb([[6, -80], [13 + sw, -52], [11 + sw * 1.4, -14]], 2.4);
+      [-1, 0, 1].forEach((f) => { limb([[-11 + sw * 1.4, -14], [-11 + sw * 1.4 + f * 2, -4]], 1.2); limb([[11 + sw * 1.4, -14], [11 + sw * 1.4 + f * 2, -4]], 1.2); });
+      return { eyes: [[sw * .5 - 1.6, -100], [sw * .5 + 1.6, -100]], color: '#dff', top: -108 };
+    },
+  };
+  const SIZE = { walker: 1, crawler: 1.15, brute: .92, stalker: .8 };
+
+  function creature(m, t) {
+    // Stage 1 stands at the far end of the hall, stage 2 near the shutter, stage 3 fills the doorway.
+    const spot = m.stage === 1 ? { y: 61, s: .3, wob: 5 } : m.stage === 2 ? { y: 117, s: .86, wob: 14 } : { y: 142, s: 1.28, wob: 3 };
+    const sc = spot.s * SIZE[m.kind] * (m.stage === 3 ? 1 + Math.sin(t * 4 + m.seed) * .02 : 1);
+    let x = 110 + Math.sin(t * .55 + m.seed) * spot.wob;
+    if (m.kind === 'crawler' && m.stage < 3) x += Math.sin(t * 19 + m.seed) * 1.6 * (Math.sin(t * 2.3 + m.seed) > 0 ? 1 : .2);   // skitters in bursts
+    let alpha = m.stage === 1 ? .85 : 1;
+    let ghost = 0;
     if (m.kind === 'stalker') {
-      if (Math.random() > 0.12) return;
-      g.fillStyle = 'rgba(4,9,9,.8)'; g.fillRect(102, 42, 16, 65); return;
+      // Visible only in glitches: it fades in and out, and its image splits into colour ghosts.
+      alpha = Math.max(0, Math.min(.85, Math.sin(t * 1.7 + m.seed) + Math.sin(t * 4.3) * .6 - .35 + (Math.random() < .05 ? .6 : 0)));
+      ghost = 2.2;
+      if (alpha <= 0) return;
     }
-    const near = m.stage === 2, y = near ? 116 : 62;
-    const h = (near ? 72 : 20) * (m.kind === 'brute' ? 1.12 : m.kind === 'crawler' ? 0.5 : 1);
-    const w = h * (m.kind === 'brute' ? 0.7 : m.kind === 'crawler' ? 1.15 : 0.35);
-    const hop = m.kind === 'crawler' ? Math.floor(t * 3) % 2 * 3 : 0;
-    g.fillStyle = '#010303';
-    g.fillRect(110 - w / 2, y - h - hop, w, h);
-    if (m.kind === 'walker') { g.fillRect(110 - w / 2 - 3, y - h * .65, 3, h * .8); g.fillRect(110 + w / 2, y - h * .65, 3, h * .8); }
+    g.save();
+    g.translate(x, spot.y); g.scale(sc, sc);
+    g.globalAlpha = .45 * alpha; g.fillStyle = '#000'; blob(0, 1, 27, 5);
+    g.globalAlpha = alpha;
+    let info;
+    if (ghost) {
+      g.save(); g.translate(-ghost, 0); g.fillStyle = g.strokeStyle = 'rgba(229,72,77,.55)'; FIGURES.stalker(t, m.seed); g.restore();
+      g.save(); g.translate(ghost, 0); g.fillStyle = g.strokeStyle = 'rgba(111,183,176,.55)'; FIGURES.stalker(t, m.seed); g.restore();
+    } else {
+      g.save(); g.translate(-1.3 / sc, -1 / sc); g.fillStyle = g.strokeStyle = '#27504a'; FIGURES[m.kind](t, m.seed); g.restore();
+    }
+    g.fillStyle = g.strokeStyle = '#010303';
+    info = FIGURES[m.kind](t, m.seed);
+    g.fillStyle = info.color;
+    const e = Math.max(1.6, 1.1 / sc);
+    info.eyes.forEach((p) => g.fillRect(p[0] - e / 2, p[1] - e / 2, e, e));
+    g.restore();
+  }
+
+  /* A creature behind a closed shutter shakes it and leaves marks. Returns the offset to draw the door with. */
+  function pound(side, t) {
+    const m = monsters.find((x) => x.side === side && x.stage === 3 && sealed(side));
+    if (!m) return { x: 0, y: 0, m: null };
+    const rate = { brute: 2.2, walker: 1.1, crawler: 6, stalker: 0 }[m.kind], amp = { brute: 2.4, walker: 1.2, crawler: .6, stalker: 0 }[m.kind];
+    const hit = rate ? Math.pow(Math.max(0, Math.sin(t * rate * TAU + m.seed)), 8) * amp : 0;
+    return { x: hit * (Math.random() < .5 ? -1 : 1), y: hit * .5, m: m };
+  }
+
+  function marks(m, t) {
+    g.save();
+    if (m.kind === 'crawler') {
+      g.strokeStyle = 'rgba(190,215,210,.45)'; g.lineWidth = 1;
+      for (let i = 0; i < 4; i++) { const x = 78 + i * 14 + (m.seed * 7 | 0) % 6; line(x, 50 + i * 3, x + 8, 82 + i * 5); }
+    } else if (m.kind === 'brute') {
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(86, 58, 48, 34);
+      g.strokeStyle = 'rgba(190,215,210,.4)'; g.lineWidth = 1;
+      line(110, 60, 100, 78); line(100, 78, 108, 90); line(110, 60, 124, 74);
+    } else if (m.kind === 'walker') {
+      g.fillStyle = 'rgba(0,0,0,.4)'; blob(96, 76, 5, 8); blob(124, 70, 5, 8);
+    }
+    g.restore();
   }
 
   function drawHall(side, t) {
@@ -193,13 +314,13 @@
     g.fillStyle = '#1a2f2c'; g.fillRect(90, 40, 40, 22);
     g.strokeStyle = '#27403c'; g.lineWidth = 1;
     line(0, 0, 90, 40); line(W, 0, 130, 40); line(0, H, 90, 62); line(W, H, 130, 62);
-    const flick = monsters.some((m) => m.side === side && m.kind === 'stalker') && Math.random() < 0.5;
+    const close = monsters.filter((m) => m.side === side), flick = close.some((m) => m.kind === 'stalker' || (m.stage >= 2 && Math.random() < (m.stage === 3 ? .3 : .12))) && Math.random() < .5;
     [[4, 30], [14, 20], [24, 12]].forEach((l) => {
       g.fillStyle = flick ? '#102421' : '#3d7a70'; g.fillRect(110 - l[1] / 2, l[0], l[1], 3);
     });
     monsters.filter((m) => m.side === side).forEach((m) => {
-      if (m.stage < 3) silhouette(m, t);
-      else { g.fillStyle = 'rgba(111,183,176,.5)'; for (let i = 0; i < 4; i++) g.fillRect(0, Math.random() * H | 0, W, 1); }
+      creature(m, t);
+      if (m.stage === 3 && m.kind !== 'stalker') { g.fillStyle = 'rgba(111,183,176,.35)'; for (let i = 0; i < 3; i++) g.fillRect(0, Math.random() * H | 0, W, 1); }
     });
     if (side === 'R') { g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(0, 0, W, H); noise(80); }
   }
@@ -236,7 +357,11 @@
     if (switchFx > 0) switchFx -= 0.066;
     g.clearRect(0, 0, W, H);
     if (blackout) { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); noise(30); return; }
+    const hit = pound(side, t);
+    g.save(); g.translate(hit.x, hit.y);
     drawHall(side, t); drawDoor(side, t);
+    if (hit.m) marks(hit.m, t);
+    g.restore();
     g.fillStyle = 'rgba(111,183,176,.06)'; g.fillRect(0, (t * 40) % H, W, 10);
     noise(switchFx > 0 ? 900 : 40 + (nearby(side) && nearby(side).kind === 'stalker' ? 170 : 0));
   }
@@ -261,7 +386,8 @@
       txt[s] = knocking(s) ? 'KNOCKING' : sealed(s) ? 'SEALED' : d.closed ? 'CLOSING' : d.progress > 0 ? 'OPENING' : 'OPEN';
     });
     const p = S.get('power');
-    const pwr = active ? Math.round(p) + '%  ' + (drain >= 0 ? '-' : '+') + Math.abs(drain).toFixed(1) + '/s' : '--';
+    const bat = S.get('battery');
+    const pwr = active ? Math.round(p) + '%  ' + (drain >= 0 ? '-' : '+') + Math.abs(drain).toFixed(1) + '/s' + (bat ? ' · B' + bat : '') : '--';
     const key = [txt.L, txt.R, pwr, !!blackout].join('|');
     if (key === paintKey) return;
     paintKey = key;
@@ -315,7 +441,7 @@
     ui.btnL.addEventListener('click', () => toggle('L'));
     ui.btnR.addEventListener('click', () => toggle('R'));
     window.addEventListener('keydown', (e) => {
-      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || S.get('paused')) return;
       const k = e.key.toLowerCase();
       if (!['1', '2', 'a', 'd'].includes(k)) return;
       e.preventDefault();
@@ -324,6 +450,7 @@
     }, true);
     bus.on('tick', onTick);
     bus.on('state:power', paintDoors);
+    bus.on('power:gain', powerGain);
     bus.on('phase:change', (e) => { if (e.phase === 'play') reset(); else stop(); });
     bus.on('dev:spawn', (e) => { if (active) spawn(e.kind, runTime); });
     refresh(); requestAnimationFrame(frame);
