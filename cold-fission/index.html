@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cold Fission</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=VT323&display=swap">
+<!-- core -->
+<link rel="stylesheet" href="core/shell.css">
+<!-- modules: one stylesheet each -->
+<link rel="stylesheet" href="modules/cameras/cameras.css">
+<link rel="stylesheet" href="modules/tasks/tasks.css">
+<link rel="stylesheet" href="modules/board/board.css">
+<link rel="stylesheet" href="modules/atmosphere/atmosphere.css">
+</head>
+<body>
+<div id="game-wrap"></div>
+
+<!-- Load order: core first, then modules (any order), then shell, then director last. -->
+<script src="core/bus.js"></script>
+<script src="core/config.js"></script>
+
+<script src="modules/cameras/cameras.js"></script>
+
+<script src="modules/tasks/minigames/blocks.js"></script>
+<script src="modules/tasks/tasks.js"></script>
+
+<script src="modules/board/board.js"></script>
+
+<script src="modules/atmosphere/audio.js"></script>
+<script src="modules/atmosphere/atmosphere.js"></script>
+
+<script src="core/shell.js"></script>
+<script src="core/director.js"></script>
+</body>
+</html>

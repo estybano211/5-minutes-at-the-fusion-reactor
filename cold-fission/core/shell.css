@@ -1,0 +1,101 @@
+/* CORE (Person A).
+   Layout concept: a fixed 1280x720 control-room stage, scaled to fit the window.
+   Top: HUD. Middle: three CRT screens (cameras / support terminal / escape board). Bottom: shutter controls. */
+:root {
+  --bg: #0b0d0e;
+  --panel: #12171a;
+  --line: #2a3438;
+  --amber: #e8b45a;
+  --amber-dim: #8f7646;
+  --teal: #6fb7b0;
+  --danger: #e5484d;
+  --ok: #7fcf8a;
+  --font-display: 'VT323', ui-monospace, Menlo, Consolas, monospace;
+  --font-body: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--amber);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+kbd { font-family: var(--font-display); color: var(--amber-dim); border: 1px solid var(--line); padding: 0 5px; font-size: 15px; }
+
+#game-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; }
+
+#stage {
+  position: absolute; left: 50%; top: 50%;
+  width: 1280px; height: 720px;
+  transform: translate(-50%, -50%) scale(var(--s, 1));
+  transform-origin: center;
+  display: grid;
+  grid-template-rows: 52px minmax(0, 1fr) 84px;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg);
+  border: 2px solid var(--line);
+  overflow: hidden;
+}
+#stage.phase-night { --panel: #0e1315; --line: #232c30; }
+
+/* HUD */
+#hud { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; font-family: var(--font-display); font-size: 26px; letter-spacing: .06em; }
+#hud-left { display: flex; gap: 14px; align-items: center; }
+#hud-center { display: flex; flex-direction: column; align-items: center; line-height: .85; }
+.hud-label { font-size: 15px; color: var(--amber-dim); letter-spacing: .18em; }
+#hud-timer { font-size: 40px; font-variant-numeric: tabular-nums; }
+#hud-timer.low { color: var(--danger); animation: blink 1s steps(2) infinite; }
+#hud-right { display: flex; gap: 22px; justify-content: flex-end; align-items: center; }
+#hud-right b { font-weight: 400; font-variant-numeric: tabular-nums; }
+.bar { display: inline-block; position: relative; width: 90px; height: 14px; border: 2px solid var(--amber-dim); vertical-align: middle; margin-left: 6px; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: var(--amber); }
+.bar.low i { background: var(--danger); }
+
+/* Screens */
+#screens { display: grid; grid-template-columns: 460px minmax(0, 1fr) 330px; gap: 12px; min-height: 0; }
+.screen { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 2px solid var(--line); background: var(--panel); }
+.screen-title { display: flex; justify-content: space-between; padding: 3px 10px; border-bottom: 2px solid var(--line); font-family: var(--font-display); font-size: 20px; letter-spacing: .14em; color: var(--amber-dim); }
+.slot { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+#controls { border: 2px solid var(--line); background: var(--panel); min-height: 0; }
+#controls .slot { height: 100%; }
+
+#fx { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+#fx > * { pointer-events: none; }
+
+/* Start / intro / end overlay */
+#overlay { position: absolute; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; background: rgba(6, 8, 9, .94); text-align: center; }
+#overlay:not([data-mode="none"]) { display: flex; }
+.ov-panel { display: none; flex-direction: column; align-items: center; gap: 18px; max-width: 760px; padding: 0 24px; }
+#overlay[data-mode="start"] #ov-start,
+#overlay[data-mode="intro"] #ov-intro,
+#overlay[data-mode="end"] #ov-end { display: flex; }
+.ov-title { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 104px; letter-spacing: .12em; line-height: .9; }
+.ov-sub { margin: 0; color: var(--amber-dim); font-size: 15px; letter-spacing: .08em; line-height: 1.6; }
+.ov-keys { margin: 0; color: var(--amber-dim); font-size: 13px; }
+.ov-btn { margin-top: 8px; padding: 6px 30px; background: transparent; border: 2px solid var(--amber); color: var(--amber); font-family: var(--font-display); font-size: 30px; letter-spacing: .14em; }
+.ov-btn:hover { background: var(--amber); color: var(--bg); }
+#ov-intro p { margin: 0; opacity: 0; font-size: 18px; line-height: 1.5; animation: rise .9s ease forwards; }
+#ov-intro p.dim { color: var(--amber-dim); font-size: 15px; }
+#ov-end .ov-title.win { color: var(--ok); }
+#ov-end .ov-title.lose { color: var(--danger); }
+#ov-reason { margin: 0; font-size: 17px; line-height: 1.5; }
+#ov-ending { min-height: 60px; color: var(--teal); font-size: 16px; line-height: 1.6; }
+
+@keyframes blink { 50% { opacity: .35; } }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  #hud-timer.low { animation: none; }
+  #ov-intro p { animation-duration: .01s; }
+}

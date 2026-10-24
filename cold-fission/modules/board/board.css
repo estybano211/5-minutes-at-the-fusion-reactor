@@ -1,0 +1,41 @@
+/* MODULE: board (Person D). Every class here starts with bd-. */
+.bd { display: flex; flex-direction: column; height: 100%; padding: 8px 12px 10px; gap: 4px; }
+.bd-sec { display: flex; justify-content: space-between; font-family: var(--font-display); font-size: 17px; letter-spacing: .14em; color: var(--amber-dim); border-bottom: 2px solid var(--line); line-height: 1.1; }
+
+.bd-crew { display: flex; flex-direction: column; gap: 3px; }
+.bd-member { display: grid; grid-template-columns: 12px 64px 30px minmax(0, 1fr); align-items: center; gap: 8px; padding: 1px 8px; background: transparent; border: 2px solid var(--line); text-align: left; font-family: var(--font-display); font-size: 18px; line-height: 1.2; letter-spacing: .06em; }
+.bd-member:disabled { cursor: default; color: var(--amber-dim); }
+.bd-member:not(:disabled):hover { border-color: var(--amber-dim); }
+.bd-member.is-sel { border-color: var(--teal); color: var(--teal); }
+.bd-member.is-stuck { border-color: var(--danger); color: var(--danger); animation: blink 1s steps(2) infinite; }
+.bd-member.is-dead { opacity: .4; text-decoration: line-through; }
+.bd-sw { width: 12px; height: 12px; }
+.bd-hp { display: flex; gap: 3px; }
+.bd-hp b { width: 10px; height: 10px; border: 2px solid var(--amber-dim); }
+.bd-hp b.on { background: var(--ok); border-color: var(--ok); }
+.bd-st { font-size: 15px; letter-spacing: .08em; color: var(--amber-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.bd-objs { display: flex; flex-direction: column; gap: 3px; }
+.bd-obj { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 1px 8px 6px; background: transparent; border: 2px solid var(--line); text-align: left; overflow: hidden; }
+.bd-obj:disabled { cursor: default; }
+.bd-obj.is-avail { border-color: var(--teal); }
+.bd-obj.is-avail:hover { background: rgba(111, 183, 176, .1); }
+.bd-obj.is-done { border-color: var(--ok); }
+.bd-obj.is-locked { opacity: .55; }
+.bd-kind { grid-row: 1 / 3; font-family: var(--font-display); font-size: 14px; letter-spacing: .1em; color: var(--amber-dim); border: 1px solid var(--line); text-align: center; padding: 1px 0; }
+.bd-oname { font-family: var(--font-display); font-size: 17px; letter-spacing: .06em; line-height: 1.1; }
+.bd-obj.is-done .bd-oname { color: var(--ok); }
+.bd-ost { font-size: 10px; line-height: 1.2; color: var(--amber-dim); letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--line); }
+.bd-prog i { display: block; height: 100%; width: 0; background: var(--teal); }
+.bd-obj.is-done .bd-prog i { background: var(--ok); }
+
+.bd-hint { min-height: 16px; font-size: 11px; line-height: 1.4; color: var(--amber-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-launch { margin-top: auto; padding: 2px; background: transparent; border: 2px solid var(--line); font-family: var(--font-display); font-size: 24px; letter-spacing: .2em; color: var(--amber-dim); }
+.bd-launch:disabled { cursor: default; }
+.bd-launch.ready { border-color: var(--ok); color: var(--ok); animation: blink 1.2s steps(2) infinite; }
+.bd-launch.ready:hover { background: var(--ok); color: var(--bg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-member.is-stuck, .bd-launch.ready { animation: none; }
+}

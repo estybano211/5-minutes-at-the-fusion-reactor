@@ -1,0 +1,29 @@
+/* MODULE: cameras (Person B). Every class here starts with cam- or ctl-. */
+.cam-view { position: relative; background: #050909; border-bottom: 2px solid var(--line); }
+.cam-canvas { display: block; width: 100%; height: auto; aspect-ratio: 220 / 130; image-rendering: pixelated; }
+.cam-label { position: absolute; left: 10px; top: 6px; font-family: var(--font-display); font-size: 22px; color: var(--teal); text-shadow: 0 0 6px rgba(111, 183, 176, .6); }
+.cam-rec { position: absolute; right: 10px; top: 8px; font-family: var(--font-display); font-size: 20px; color: var(--danger); animation: blink 1.4s steps(2) infinite; }
+.cam-off { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 40px; letter-spacing: .2em; color: var(--danger); }
+.cam-view.off .cam-off { display: flex; }
+
+.cam-tabs { display: flex; gap: 6px; padding: 8px; }
+.cam-tab { flex: 1; padding: 5px 4px; background: transparent; border: 2px solid var(--line); font-family: var(--font-display); font-size: 19px; letter-spacing: .06em; color: var(--amber-dim); }
+.cam-tab:hover { border-color: var(--amber-dim); }
+.cam-tab.on { border-color: var(--teal); color: var(--teal); }
+
+.cam-status { display: grid; gap: 6px; padding: 4px 12px; font-family: var(--font-display); font-size: 20px; color: var(--amber-dim); }
+.cam-row { display: flex; justify-content: space-between; align-items: center; }
+.cam-row b { font-weight: 400; color: var(--amber); }
+.cam-row b.sealed { color: var(--ok); }
+.rad { display: flex; gap: 5px; }
+.rad i { width: 34px; height: 12px; border: 2px solid var(--line); }
+.rad i.on { background: var(--danger); border-color: var(--danger); }
+
+.ctl { display: grid; grid-template-columns: 1fr 220px 1fr; gap: 10px; height: 100%; padding: 8px; }
+.ctl-btn { display: flex; align-items: center; justify-content: space-between; padding: 0 22px; background: transparent; border: 2px solid var(--amber-dim); font-family: var(--font-display); font-size: 30px; letter-spacing: .1em; color: var(--amber); }
+.ctl-btn:hover { background: rgba(232, 180, 90, .08); }
+.ctl-btn.sealed { background: var(--ok); border-color: var(--ok); color: var(--bg); }
+.ctl-btn.sealed kbd { color: var(--bg); border-color: var(--bg); }
+.ctl-btn.flare { justify-content: center; gap: 18px; border-color: var(--line); }
+.ctl-btn b { font-weight: 400; }
+.ctl.idle .ctl-btn { opacity: .35; }

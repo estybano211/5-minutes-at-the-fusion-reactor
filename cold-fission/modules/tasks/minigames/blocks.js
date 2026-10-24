@@ -1,0 +1,175 @@
+/* MINIGAME: blocks (Person C). A tiny Tetris. The board starts with a few half-built rows; clear the target
+   number of rows before the support timer (owned by tasks.js) runs out. If the stack reaches the top, the board
+   resets and the player keeps going with less time. Options come from the objective's stage in core/config.js:
+   { rows: how many rows to clear, garbage: how many half-built rows to start with }. */
+(function () {
+  const CF = window.CF, bus = CF.bus;
+  CF.minigames = CF.minigames || {};
+
+  const COLS = 8, ROWS = 10, CELL = 22;
+  const SHAPES = {
+    I: ['0000', '1111', '0000', '0000'],
+    O: ['11', '11'],
+    T: ['010', '111', '000'],
+    S: ['011', '110', '000'],
+    Z: ['110', '011', '000'],
+    J: ['100', '111', '000'],
+    L: ['001', '111', '000'],
+  };
+  const COLORS = { I: '#6fb7b0', O: '#e8b45a', T: '#9a7fe0', S: '#7fcf8a', Z: '#e5484d', J: '#7fb8d9', L: '#d98c5f', G: '#33524d' };
+  const DROP = [0.7, 0.55, 0.45];                    // seconds per row of fall, by shift (faster later)
+
+  const matrix = (rows) => rows.map((r) => r.split('').map(Number));
+  const rotateCW = (m) => m.map((_, r) => m.map((__, c) => m[m.length - 1 - c][r]));
+  const shuffle = (a) => a.map((v) => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map((p) => p[1]);
+  const topRow = (m) => m.findIndex((r) => r.some(Boolean));
+
+  CF.minigames.blocks = {
+    id: 'blocks',
+    title: 'CIRCUIT BLOCKS',
+    start(el, done, opts) {
+      opts = opts || {};
+      const goal = opts.rows || 1;
+      const garbage = Math.min(opts.garbage || 2, ROWS - 5);
+      const dropEvery = DROP[Math.max(0, Math.min(2, (opts.day || 1) - 1))];
+
+      el.innerHTML = `
+        <div class="bk">
+          <div class="bk-main">
+            <canvas class="bk-board" width="${COLS * CELL}" height="${ROWS * CELL}"></canvas>
+            <div class="bk-side">
+              <div class="bk-label">CLEAR</div><div class="bk-rows">0/${goal}</div>
+              <div class="bk-label">NEXT</div><canvas class="bk-next" width="66" height="44"></canvas>
+              <div class="bk-msg"></div>
+            </div>
+          </div>
+          <div class="bk-pad">
+            <button class="bk-btn" data-k="left">◀</button><button class="bk-btn" data-k="rot">ROTATE</button>
+            <button class="bk-btn" data-k="right">▶</button><button class="bk-btn" data-k="drop">DROP</button>
+          </div>
+          <div class="bk-keys">Arrows or WASD: move, rotate, down · Space: drop</div>
+        </div>`;
+      const g = el.querySelector('.bk-board').getContext('2d');
+      const gn = el.querySelector('.bk-next').getContext('2d');
+      const rowsEl = el.querySelector('.bk-rows'), msgEl = el.querySelector('.bk-msg');
+
+      let board, piece = null, next = null, bag = [], cleared = 0, acc = 0, soft = false, stopped = false, last = performance.now(), raf = 0;
+
+      const fresh = () => Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+      function resetBoard() {
+        board = fresh();
+        for (let i = 0; i < garbage; i++) {
+          const row = Array(COLS).fill('G');
+          const gaps = 1 + (Math.random() < 0.4 ? 1 : 0);
+          for (let k = 0; k < gaps; k++) row[(Math.random() * COLS) | 0] = 0;
+          board[ROWS - 1 - i] = row;
+        }
+      }
+      function makePiece() {
+        if (!bag.length) bag = shuffle(Object.keys(SHAPES));
+        const k = bag.pop(), m = matrix(SHAPES[k]);
+        return { k: k, m: m, x: Math.floor((COLS - m.length) / 2), y: -topRow(m) };
+      }
+      const collide = (m, x, y) => m.some((row, r) => row.some((v, c) => {
+        if (!v) return false;
+        const bx = x + c, by = y + r;
+        return bx < 0 || bx >= COLS || by >= ROWS || (by >= 0 && board[by][bx]);
+      }));
+
+      function spawn() {
+        piece = next || makePiece();
+        next = makePiece();
+        if (collide(piece.m, piece.x, piece.y)) {          // stack reached the top: start the board over
+          resetBoard();
+          msgEl.textContent = 'STACK RESET';
+          bus.emit('sfx', 'deny');
+        }
+      }
+
+      function lock() {
+        piece.m.forEach((row, r) => row.forEach((v, c) => { if (v && piece.y + r >= 0) board[piece.y + r][piece.x + c] = piece.k; }));
+        let n = 0;
+        for (let r = ROWS - 1; r >= 0; r--) {
+          if (board[r].every(Boolean)) { board.splice(r, 1); board.unshift(Array(COLS).fill(0)); n++; r++; }
+        }
+        bus.emit('sfx', n ? 'ok' : 'click');
+        if (n) {
+          cleared += n;
+          rowsEl.textContent = Math.min(cleared, goal) + '/' + goal;
+          msgEl.textContent = '';
+          if (cleared >= goal) { stopped = true; draw(); done(true); return; }
+        }
+        spawn();
+      }
+
+      const move = (dx) => { if (!stopped && !collide(piece.m, piece.x + dx, piece.y)) piece.x += dx; };
+      function rot() {
+        if (stopped) return;
+        const m = rotateCW(piece.m);
+        for (const dx of [0, -1, 1, -2, 2]) { if (!collide(m, piece.x + dx, piece.y)) { piece.m = m; piece.x += dx; return; } }
+      }
+      function step() { if (!collide(piece.m, piece.x, piece.y + 1)) piece.y++; else lock(); }
+      function hardDrop() { if (stopped) return; while (!collide(piece.m, piece.x, piece.y + 1)) piece.y++; lock(); }
+
+      function cell(ctx, x, y, color, s) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x * s + 1, y * s + 1, s - 2, s - 2);
+      }
+      function draw() {
+        g.fillStyle = '#050909'; g.fillRect(0, 0, COLS * CELL, ROWS * CELL);
+        g.strokeStyle = '#122220';
+        for (let c = 1; c < COLS; c++) { g.beginPath(); g.moveTo(c * CELL + .5, 0); g.lineTo(c * CELL + .5, ROWS * CELL); g.stroke(); }
+        board.forEach((row, r) => row.forEach((v, c) => { if (v) cell(g, c, r, COLORS[v], CELL); }));
+        if (piece && !stopped) {
+          let gy = piece.y;
+          while (!collide(piece.m, piece.x, gy + 1)) gy++;
+          g.globalAlpha = 0.25;
+          piece.m.forEach((row, r) => row.forEach((v, c) => { if (v && gy + r >= 0) cell(g, piece.x + c, gy + r, COLORS[piece.k], CELL); }));
+          g.globalAlpha = 1;
+          piece.m.forEach((row, r) => row.forEach((v, c) => { if (v && piece.y + r >= 0) cell(g, piece.x + c, piece.y + r, COLORS[piece.k], CELL); }));
+        }
+        gn.fillStyle = '#050909'; gn.fillRect(0, 0, 66, 44);
+        if (next) {
+          const m = next.m, off = (4 - m.length) * 5;
+          m.forEach((row, r) => row.forEach((v, c) => { if (v) cell(gn, c + 0.4, r + 0.2 + off / 11, COLORS[next.k], 11); }));
+        }
+      }
+
+      function frame(now) {
+        if (stopped) return;
+        raf = requestAnimationFrame(frame);
+        acc += Math.min((now - last) / 1000, 0.25); last = now;
+        const every = soft ? 0.05 : dropEvery;
+        while (acc >= every && !stopped) { acc -= every; step(); }
+        draw();
+      }
+
+      const KEYS = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'rot', w: 'rot', ' ': 'drop', ArrowDown: 'down', s: 'down' };
+      const act = (k) => { if (k === 'left') move(-1); else if (k === 'right') move(1); else if (k === 'rot') rot(); else if (k === 'drop') hardDrop(); };
+      function onKey(e) {
+        const k = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+        if (!k) return;
+        e.preventDefault();
+        if (k === 'down') { soft = true; return; }
+        if (!e.repeat || k === 'left' || k === 'right') act(k);
+      }
+      const onUp = (e) => { if (KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key] === 'down') soft = false; };
+      document.addEventListener('keydown', onKey);
+      document.addEventListener('keyup', onUp);
+      el.querySelectorAll('.bk-btn').forEach((b) => b.addEventListener('click', () => act(b.dataset.k)));
+
+      resetBoard();
+      spawn();
+      raf = requestAnimationFrame(frame);
+
+      return {
+        cancel() {
+          stopped = true;
+          cancelAnimationFrame(raf);
+          document.removeEventListener('keydown', onKey);
+          document.removeEventListener('keyup', onUp);
+        },
+      };
+    },
+  };
+})();
