@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8 Minutes at Fusion Reactor · Minigames Dev</title>
+<link rel="stylesheet" href="../core/shell.css">
+<link rel="stylesheet" href="../modules/tasks/tasks.css">
+<link rel="stylesheet" href="../modules/tasks/minigames/minigames.css">
+<style>
+  .dev-mg-body { overflow: auto; padding: 25px; }
+  .dev-mg-wrap { width: 480px; max-width: 100%; margin: auto; }
+  .dev-mg-title { font-family: var(--font-display); font-size: 36px; letter-spacing: .1em; }
+  .dev-mg-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .dev-mg-controls button { border: 1px solid var(--amber); background: var(--panel); padding: 4px 9px; font-family: var(--font-display); font-size: 21px; }
+  .dev-mg-controls button:hover { background: var(--amber); color: var(--bg); }
+  .dev-mg-level { display: flex; gap: 8px; align-items: center; }
+  .dev-mg-level select { background: var(--panel); color: var(--amber); border: 1px solid var(--line); font: inherit; }
+  .dev-mg-status { display: flex; justify-content: space-between; font-family: var(--font-display); font-size: 24px; margin: 8px 0; }
+  .dev-mg-box { width: 440px; height: 320px; max-width: 100%; border: 2px solid var(--line); background: var(--panel); }
+  .dev-mg-box .tk-game { width: 100%; height: 100%; }
+  .dev-mg-reminder { font-size: 12px; color: var(--amber-dim); margin-top: 12px; }
+</style>
+</head>
+<body class="dev-mg-body">
+<main class="dev-mg-wrap">
+  <div class="dev-mg-title">MINIGAME LAB</div>
+  <div class="dev-mg-level">DIFFICULTY <select id="dev-mg-difficulty"><option value="1">1 · EASY</option><option value="2">2 · MEDIUM</option><option value="3">3 · HARD</option></select></div>
+  <div class="dev-mg-controls" id="dev-mg-controls">
+    <button data-game="shield">SHIELD</button><button data-game="pipes">PIPES</button><button data-game="mash">COUPLER</button><button data-game="flow">COOLANT</button><button data-game="switches">IGNITION</button><button data-game="blocks">BLOCKS</button>
+  </div>
+  <div class="dev-mg-status"><span id="dev-mg-result">CHOOSE A GAME</span><span id="dev-mg-time">25.0 s</span></div>
+  <div class="dev-mg-box"><div class="tk-game" id="dev-mg-game"></div></div>
+  <p class="dev-mg-reminder">Keys 1, 2, A and D are reserved. Minigames ignore them.</p>
+</main>
+<script src="../core/bus.js"></script>
+<script src="../core/config.js"></script>
+<script src="../modules/tasks/minigames/shield.js"></script>
+<script src="../modules/tasks/minigames/pipes.js"></script>
+<script src="../modules/tasks/minigames/mash.js"></script>
+<script src="../modules/tasks/minigames/flow.js"></script>
+<script src="../modules/tasks/minigames/switches.js"></script>
+<script src="../modules/tasks/minigames/blocks.js"></script>
+<script>
+(function () {
+  const box = document.getElementById('dev-mg-game');
+  const result = document.getElementById('dev-mg-result'), time = document.getElementById('dev-mg-time');
+  let active = null, timer = 0, started = 0, running = false;
+  function stop() { running = false; clearInterval(timer); if (active) active.cancel(); active = null; }
+  document.getElementById('dev-mg-controls').addEventListener('click', function (e) {
+    const button = e.target.closest('[data-game]');
+    if (!button) return;
+    stop(); box.innerHTML = ''; button.blur();
+    const name = button.dataset.game, difficulty = Number(document.getElementById('dev-mg-difficulty').value);
+    result.textContent = window.CF.minigames[name].title;
+    time.textContent = '25.0 s';
+    started = performance.now(); running = true;
+    active = window.CF.minigames[name].start(box, function (ok) {
+      if (!running || !ok) return;
+      const elapsed = (performance.now() - started) / 1000;
+      result.textContent = 'SOLVED in ' + elapsed.toFixed(1) + ' s';
+      stop();
+    }, { day: difficulty, difficulty: difficulty, rows: 1, garbage: 2 });
+    timer = setInterval(function () {
+      if (!running) return;
+      const left = Math.max(0, 25 - (performance.now() - started) / 1000);
+      time.textContent = left.toFixed(1) + ' s';
+      if (left <= 0) { result.textContent = 'TIME UP'; stop(); }
+    }, 50);
+  });
+})();
+</script>
+</body>
+</html>

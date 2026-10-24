@@ -1,4 +1,4 @@
-/* CORE (Person A). Shared numbers and game data only. Module-specific tuning lives in each module's own file. */
+/* Shared numbers and game data. Module tuning lives with each module. */
 (function () {
   const CF = window.CF;
   const q = new URLSearchParams(location.search);
@@ -14,37 +14,37 @@
   // does some work, and gets stuck at every obstacle until the player helps over the intercom.
   //   kind     'item' (bring something back) or 'op' (do something on site)
   //   travel   seconds to get there        work   seconds of work before each obstacle and after the last one
-  //   requires ids that must be done first bonus  'flare' | 'battery' | null, a spare the crew finds on the way
+  //   requires ids that must be done first bonus  'battery' | null, a spare the crew finds on the way
   //   stages   one obstacle each; `game` is the minigame id that solves it, `opts` is passed to that minigame
   const OBJECTIVES = [
-    { id: 'navcore', name: 'Nav Core', kind: 'item', place: 'Navigation deck', travel: 12, work: 7, requires: [], bonus: null,
+    { id: 'navcore', name: 'Nav Core', kind: 'item', place: 'Navigation deck', travel: 38, work: 22, requires: [], bonus: null,
       stages: [
-        { say: 'The navigation deck hatch is sealed. Can you override the lock?', game: 'blocks', opts: { rows: 1, garbage: 2 } },
-        { say: 'The core sits in a cage with a dead relay. Reroute the power, please.', game: 'blocks', opts: { rows: 2, garbage: 3 } },
+        { say: 'Debris is hitting the core cage. Cover me!', game: 'shield', opts: { difficulty: 1 } },
+        { say: 'Sparks are flying at the cage. Keep them off me!', game: 'shield', opts: { difficulty: 2 } },
       ] },
-    { id: 'fuelcell', name: 'Fuel Cell', kind: 'item', place: 'Engine bay', travel: 14, work: 7, requires: [], bonus: 'battery',
+    { id: 'fuelcell', name: 'Fuel Cell', kind: 'item', place: 'Engine bay', travel: 45, work: 22, requires: [], bonus: 'battery',
       stages: [
-        { say: 'Coolant is flooding the engine bay. The pressure lock needs clearing.', game: 'blocks', opts: { rows: 2, garbage: 3 } },
-        { say: 'The cell housing is jammed behind a shorted panel.', game: 'blocks', opts: { rows: 1, garbage: 2 } },
+        { say: 'The fuel line is broken. Join the pipes for me.', game: 'pipes', opts: { difficulty: 1 } },
+        { say: 'Another fuel line is split. Patch this one too.', game: 'pipes', opts: { difficulty: 2 } },
       ] },
-    { id: 'coupler', name: 'Thruster Coupler', kind: 'item', place: 'Cargo hold', travel: 10, work: 7, requires: [], bonus: null,
+    { id: 'coupler', name: 'Thruster Coupler', kind: 'item', place: 'Cargo hold', travel: 32, work: 22, requires: [], bonus: null,
       stages: [
-        { say: 'The cargo door is stuck. Can you cut the lock circuit?', game: 'blocks', opts: { rows: 1, garbage: 2 } },
-        { say: 'The coupler rack is on a dead circuit. Reconnect it.', game: 'blocks', opts: { rows: 2, garbage: 3 } },
+        { say: 'The coupler release keeps changing. Hit the prompts!', game: 'mash', opts: { difficulty: 1 } },
+        { say: 'The final catches are moving fast. Keep up!', game: 'mash', opts: { difficulty: 2 } },
       ] },
-    { id: 'purge', name: 'Purge coolant loop', kind: 'op', place: 'Reactor annex', travel: 14, work: 6, requires: [], bonus: 'flare',
+    { id: 'purge', name: 'Purge coolant loop', kind: 'op', place: 'Reactor annex', travel: 45, work: 19, requires: [], bonus: 'battery',
       stages: [
-        { say: 'The purge controls are locked out. I need the sequence cleared.', game: 'blocks', opts: { rows: 2, garbage: 3 } },
-        { say: 'The second loop is locked out as well. Same again, please.', game: 'blocks', opts: { rows: 2, garbage: 3 } },
+        { say: 'Coolant is moving. Place the pipe pieces ahead of it!', game: 'flow', opts: { difficulty: 1 } },
+        { say: 'The second loop is live. Guide the flow through.', game: 'flow', opts: { difficulty: 2 } },
       ] },
-    { id: 'power', name: 'Reroute hangar power', kind: 'op', place: 'Power junction', travel: 10, work: 6, requires: [], bonus: null,
+    { id: 'power', name: 'Reroute hangar power', kind: 'op', place: 'Power junction', travel: 32, work: 19, requires: [], bonus: null,
       stages: [
-        { say: 'The junction box is fried. Can you reroute the cables?', game: 'blocks', opts: { rows: 2, garbage: 3 } },
+        { say: 'The power grid is jammed. Clear a row to reroute it.', game: 'blocks', opts: { rows: 1, garbage: 2, difficulty: 1 } },
       ] },
-    { id: 'ignition', name: 'Prime the ignition', kind: 'op', place: 'Flight deck', travel: 8, work: 6, requires: ['fuelcell', 'power'], bonus: null,
+    { id: 'ignition', name: 'Prime the ignition', kind: 'op', place: 'Flight deck', travel: 26, work: 19, requires: ['fuelcell', 'power'], bonus: null,
       stages: [
-        { say: 'The ignition panel has no power. Reconnect it.', game: 'blocks', opts: { rows: 1, garbage: 2 } },
-        { say: 'The final interlock is the hardest lock on the ship. Ready?', game: 'blocks', opts: { rows: 3, garbage: 4 } },
+        { say: 'Set the ignition switches in the right order.', game: 'switches', opts: { difficulty: 2 } },
+        { say: 'Final ignition check. Set every lever now!', game: 'switches', opts: { difficulty: 3 } },
       ] },
   ];
 
@@ -56,18 +56,9 @@
     speed: Math.max(0.1, Number(q.get('speed')) || 1),
     god: q.get('god') === '1',
 
-    // The whole game is this list: 480 game-seconds = 8 real minutes at speed 1.
-    // On screen the phases are called SHIFT (day) and LOCKDOWN (night); in code they stay 'day' and 'night'.
-    // During a SHIFT the player dispatches and supports the crew. During a LOCKDOWN the crew takes cover
-    // and the player defends the control room.
-    schedule: [
-      { phase: 'day',   day: 1, duration: 90 },
-      { phase: 'night', day: 1, duration: 50 },
-      { phase: 'day',   day: 2, duration: 90 },
-      { phase: 'night', day: 2, duration: 60 },
-      { phase: 'day',   day: 3, duration: 90 },
-      { phase: 'night', day: 3, duration: 100 },
-    ],
+    // One continuous run. `day` remains the internal ramp value for minigame compatibility.
+    schedule: [{ phase: 'play', duration: 480 }],
+    rampAt: [160, 320],
 
     // The wall clock runs from `start` to `end` across the whole schedule (minutes since midnight).
     // The plant melts down at `end` (01:00 the next day), so the game ends then at the latest.
@@ -78,14 +69,14 @@
     },
 
     crew: CREW.slice(0, Math.max(1, Math.min(CREW.length, Number(q.get('crew')) || CREW.length))),
-    crewHp: 2,                          // each failed or missed support request costs 1; at 0 the crew member dies
+    crewHp: 3,                          // each failed or missed support request costs 1; at 0 the crew member dies
     objectives: OBJECTIVES,
-    supportPatience: [30, 26, 22],      // seconds a stuck crew member can wait for help, per shift
-    supportLimit: [14, 12, 10],         // seconds the player gets to solve the minigame, per shift
+    supportPatience: [45, 40, 35],      // seconds a stuck crew member can wait for help, per ramp level
+    supportLimit: [25, 22, 20],         // seconds the player gets to solve the minigame, per ramp level
 
     // Fresh runtime records. Only the tasks module (the "engine") changes them after this.
     initialCrew() {
-      return this.crew.map((c) => ({ id: c.id, name: c.name, color: c.color, hp: this.crewHp, status: 'idle', at: null, cover: false }));
+      return this.crew.map((c) => ({ id: c.id, name: c.name, color: c.color, hp: this.crewHp, status: 'idle', at: null }));
     },
     initialObjectives() {
       return this.objectives.map((o) => ({

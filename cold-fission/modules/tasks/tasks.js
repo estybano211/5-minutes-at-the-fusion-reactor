@@ -1,21 +1,4 @@
-/* ─────────────────────────────────────────────────────────────────────────
-   MODULE: tasks      OWNER: Person C (Crew and Support)
-   Owns   the crew simulation (this is the "engine"), the intercom log, the support requests and the
-          minigame runner. It is the ONLY writer of the `team` and `objectives` state.
-   Reads  state: phase, day         config: crew, objectives, crewHp, supportPatience, supportLimit
-   Writes state: team, objectives, flares / battery (bonus finds)
-   Listens dispatch:request {crew, objective}   from the board (Person D)
-           phase:change, tick, intercom:say {who, text, static?}
-   Emits  team:dispatched {crew, objective}, team:hurt {id}, team:died {id, name}, objective:done {id, kind},
-          support:done {crew, objective}, support:failed {crew, objective}, sfx <name>, fx:flash <colour>
-
-   A trip: travel -> work -> OBSTACLE -> work -> OBSTACLE ... -> work -> done.
-   At each obstacle the crew member is stuck and asks for help. The player plays a minigame to get them through.
-   Fail it, or let the request run out, and the crew member loses 1 HP. At 0 HP they die.
-   During a LOCKDOWN (phase 'night') everything here is paused: the crew takes cover.
-   A minigame is { id, title, start(el, done, opts) -> { cancel() } } registered on CF.minigames (see minigames/blocks.js).
-   opts = { day, ...the stage's opts from core/config.js }.
-   ───────────────────────────────────────────────────────────────────────── */
+/* Crew trips, support requests, intercom and minigame timing. All run during play. */
 (function () {
   const CF = window.CF, S = CF.state, bus = CF.bus, cfg = CF.config;
   CF.minigames = CF.minigames || {};
@@ -25,27 +8,23 @@
   const LINES = {
     go: ['On my way.', 'Heading out.', 'Moving.'],
     thanks: ['Thanks. Moving on.', 'That did it.', 'Good. I am through.'],
-    hurt: ['Ow. I am still here. Please be quicker.', 'That hurt. Do not do that again.', 'I do not like it down here.'],
+    hurt: ['I missed the support window. I am hurt, but still here.', 'That attempt failed. I am hurt; please try again.', 'I waited too long and got hurt. Help me through.'],
     last: ['No, no, there is something in the vent...', 'It is right behind me. It is...', 'Tell them I tried to...'],
   };
-  // Lines from the crew while they hide during a lockdown. who: a crew id, 'any' (a living one) or 'sys'.
-  const NIGHT_LINES = {
-    1: [{ t: 12, who: 'any', text: 'I am in a locker. I can hear something outside.' }],
-    2: [{ t: 14, who: 'any', text: 'It is so quiet. Why is it so quiet?' },
-        { t: 50, who: 'any', text: 'Do not open the shutters for anyone. Anyone.' }],
-    3: [{ t: 10, who: 'any', text: 'I saw someone I know in the corridor. They were not walking right.' },
-        { t: 60, who: 'any', text: 'They are asking me to come out. I think I would like to.' },
-        { t: 105, who: 'sys', text: 'REACTOR RESPONSE NOMINAL. THE COMPANY THANKS YOU FOR YOUR CONTINUED SERVICE.' }],
-  };
+  const TIMED_LINES = [
+    { t: 115, text: 'Something crossed the service hall. I am keeping my head down.' },
+    { t: 275, text: 'I heard a knock from inside the wall. Nobody is working there.' },
+    { t: 405, text: 'The intercom picked up my voice before I spoke.' },
+  ];
 
   let el = {}, team = [], objs = [], reqs = [], cards = {}, log = [];
-  let mode = 'shift', cur = null, game = null, workLeft = 0, workMax = 1, nightT = 0, nightLines = [];
+  let mode = 'idle', cur = null, game = null, workLeft = 0, workMax = 1, nextLine = 0, lastWarning = -100, elapsed = 0;
 
   const tm = (id) => team.find((t) => t.id === id);
   const ob = (id) => objs.find((o) => o.id === id);
   const def = (id) => cfg.objectives.find((o) => o.id === id);
   const slow = (t) => (t.hp < cfg.crewHp ? SLOW : 1);
-  const shiftIdx = () => Math.max(0, Math.min(2, S.get('day') - 1));
+  const rampIdx = () => Math.max(0, Math.min(2, S.get('day') - 1));
 
   /* ── state out ──────────────────────────────────────────────────────── */
   function publish() {
@@ -78,7 +57,7 @@
   /* ── the trip ───────────────────────────────────────────────────────── */
   function dispatch(e) {
     const t = tm(e.crew), o = ob(e.objective);
-    const ok = S.get('phase') === 'day' && t && o && t.status === 'idle' && !o.done && !o.by && !o.locked;
+    const ok = S.get('phase') === 'play' && t && o && t.status === 'idle' && !o.done && !o.by && !o.locked;
     if (!ok) { bus.emit('sfx', 'deny'); return; }
     t.status = 'travel'; t.at = o.id; t.timer = def(o.id).travel * slow(t); o.by = t.id;
     bus.emit('sfx', 'beep');
@@ -98,7 +77,7 @@
     o.done = true; o.by = null; o.frac = 0; t.status = 'idle'; t.at = null; t.timer = 0;
     say(t.id, d.kind === 'item' ? 'I have the ' + o.name + '.' : o.name + ': done.');
     if (d.bonus) {
-      S.add(d.bonus === 'flare' ? 'flares' : 'battery', 1);
+      S.add('battery', 1);
       say(t.id, 'Found a spare ' + d.bonus + ' on the way back. It is yours.');
     }
     bus.emit('sfx', 'chime');
@@ -110,7 +89,7 @@
   function addRequest(t, o) {
     const stage = def(o.id).stages[(o.step - 1) / 2];
     const game = CF.minigames[stage.game] ? stage.game : Object.keys(CF.minigames)[0];
-    const patience = cfg.supportPatience[shiftIdx()];
+    const patience = cfg.supportPatience[rampIdx()];
     const r = { tid: t.id, oid: o.id, say: stage.say, game: game, opts: Object.assign({ day: S.get('day') }, stage.opts), patience: patience, max: patience };
     reqs.push(r);
 
@@ -138,21 +117,22 @@
   }
 
   function startSupport(r) {
-    if (mode !== 'shift' || S.get('phase') !== 'day') return;
+    if (mode !== 'idle' || S.get('phase') !== 'play' || !reqs.includes(r)) return;
     const mg = CF.minigames[r.game];
     cur = r; mode = 'working'; el.root.dataset.mode = 'working';
-    workMax = workLeft = cfg.supportLimit[shiftIdx()];
+    workMax = workLeft = cfg.supportLimit[rampIdx()];
     el.title.textContent = (mg ? mg.title : 'SUPPORT') + ' · ' + tm(r.tid).name.toUpperCase();
     bus.emit('sfx', 'click');
     if (!mg) { finishSupport(true); return; }
-    game = mg.start(el.game, (ok) => finishSupport(ok), r.opts);
+    const started = mg.start(el.game, (ok) => finishSupport(ok), r.opts);
+    if (mode === 'working') game = started;
   }
 
   function endGame() {
     if (game && game.cancel) game.cancel();
     game = null; cur = null;
     if (el.game) el.game.innerHTML = '';
-    if (mode === 'working') { mode = 'shift'; el.root.dataset.mode = 'shift'; }
+    if (mode === 'working') { mode = 'idle'; el.root.dataset.mode = 'idle'; }
   }
 
   function finishSupport(ok) {
@@ -167,16 +147,16 @@
       bus.emit('support:done', { crew: t.id, objective: o.id });
     } else {
       bus.emit('support:failed', { crew: t.id, objective: o.id });
-      hurt(t, r);
+      hurt(t, r, 'failed');
     }
     publish();
   }
 
-  function hurt(t, r) {
+  function hurt(t, r, reason) {
     t.hp -= 1;
     if (t.hp <= 0) { die(t); return; }
     r.patience = r.max;
-    say(t.id, pick(LINES.hurt));
+    say(t.id, reason === 'missed' ? 'I waited too long for help. I am hurt; please answer.' : pick(LINES.hurt));
     bus.emit('sfx', 'deny');
     bus.emit('fx:flash', '#6a1010');
     bus.emit('team:hurt', { id: t.id });
@@ -198,18 +178,14 @@
 
   /* ── clock ──────────────────────────────────────────────────────────── */
   function onTick(e) {
-    if (e.phase === 'night') {
-      nightT += e.dt;
-      while (nightLines.length && nightT >= nightLines[0].t) {
-        const l = nightLines.shift();
-        const alive = team.filter((t) => t.status !== 'dead');
-        if (l.who === 'any') { if (alive.length) say(pick(alive).id, l.text, true); }
-        else say(l.who, l.text, true);
-        bus.emit('sfx', 'static');
-      }
-      return;
+    if (e.phase !== 'play') return;
+    elapsed = e.t;
+    while (nextLine < TIMED_LINES.length && elapsed >= TIMED_LINES[nextLine].t) {
+      const alive = team.filter((t) => t.status !== 'dead');
+      if (alive.length) say(pick(alive).id, TIMED_LINES[nextLine].text, true);
+      nextLine++;
+      bus.emit('sfx', 'static');
     }
-    if (e.phase !== 'day') return;
 
     team.forEach((t) => {
       if (t.status === 'travel') {
@@ -231,7 +207,7 @@
       r.patience -= e.dt;
       const c = cards[r.tid];
       if (c) { c.bar.style.width = Math.max(0, (r.patience / r.max) * 100) + '%'; c.card.classList.toggle('urgent', r.patience < 8); }
-      if (r.patience <= 0) hurt(tm(r.tid), r);
+      if (r.patience <= 0) hurt(tm(r.tid), r, 'missed');
     });
 
     if (mode === 'working') {
@@ -244,27 +220,28 @@
   }
 
   function onPhase(e) {
-    endGame();                                      // a minigame in progress is dropped without penalty
-    if (e.phase === 'day') {
-      team.forEach((t) => { t.cover = false; });
-      nightLines = [];
-      mode = 'shift'; el.root.dataset.mode = 'shift';
-      say('sys', 'Shift ' + e.day + '. Pick a crew member on the board, then an objective.');
-      publish();
-    } else if (e.phase === 'night') {
-      team.forEach((t) => { t.cover = t.status !== 'dead'; });
-      nightT = 0; nightLines = (NIGHT_LINES[e.day] || []).slice();
-      mode = 'locked'; el.root.dataset.mode = 'locked';
-      say('sys', 'LOCKDOWN. The crew is taking cover. Defend the control room.', true);
-      publish();
+    if (e.phase === 'play') {
+      if (mode === 'working') endGame();
+      mode = 'idle'; el.root.dataset.mode = 'idle';
+      nextLine = 0; elapsed = 0; lastWarning = -100;
+      say('sys', 'Crew and shutters are live. Send a crew member, then watch both halls.');
+    } else if (e.phase === 'win' || e.phase === 'lose') {
+      endGame(); mode = 'idle'; el.root.dataset.mode = 'idle';
     }
+  }
+
+  function onThreat(e) {
+    if (S.get('phase') !== 'play' || e.level < 2 || elapsed - lastWarning < 24) return;
+    lastWarning = elapsed;
+    const alive = team.filter((t) => t.status !== 'dead');
+    if (alive.length) say(pick(alive).id, 'I hear movement near the ' + (e.side === 'L' ? 'west' : 'east') + ' hall. Watch the shutter.', true);
   }
 
   /* ── UI ─────────────────────────────────────────────────────────────── */
   function mount(slots) {
     const root = slots.tasks;
     root.innerHTML = `
-      <div class="tk" data-mode="shift">
+      <div class="tk" data-mode="idle">
         <div class="tk-log"></div>
         <div class="tk-reqs">
           <div class="tk-sec">SUPPORT REQUESTS</div>
@@ -276,7 +253,6 @@
           <div class="tk-bar"><i></i></div>
           <div class="tk-game"></div>
         </div>
-        <div class="tk-lock">LOCKDOWN<br><small>The crew is taking cover.</small></div>
       </div>`;
     el = {
       root: root.querySelector('.tk'), log: root.querySelector('.tk-log'), list: root.querySelector('.tk-list'),
@@ -292,6 +268,12 @@
     bus.on('intercom:say', (e) => say(e.who || 'sys', e.text, e.static));
     bus.on('tick', onTick);
     bus.on('phase:change', onPhase);
+    bus.on('creature:threat', onThreat);
+    window.addEventListener('keydown', (e) => {
+      if (mode !== 'working') return;
+      if (e.code === 'Space') e.preventDefault();
+      if (['1', '2', 'a', 'd'].includes(e.key.toLowerCase())) e.stopImmediatePropagation();
+    }, true);
     say('sys', 'Control room online. Crew standing by.');
   }
 

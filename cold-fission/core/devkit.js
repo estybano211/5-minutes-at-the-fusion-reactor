@@ -1,26 +1,21 @@
-/* CORE (Person A). Used ONLY by the pages in /dev. Stands in for director.js so one module can be
-   developed alone: it fakes the clock ('tick'), lets you jump between phases, and pretends to be
-   whichever module is NOT loaded on the page (the support engine, the board, the cameras), so you can
-   test your module in isolation. It never ships in index.html. */
+/* Standalone dev pages: fake clock, alert jump, and stand-ins for unloaded modules. */
 (function () {
   const CF = window.CF, S = CF.state, bus = CF.bus, cfg = CF.config;
   CF.dev = true;
 
-  const steps = cfg.schedule;
-  const total = steps.reduce((a, s) => a + s.duration, 0);
-  let idx = 0, left = 0, last = performance.now();
-  const before = (i) => steps.slice(0, i).reduce((a, s) => a + s.duration, 0);
+  const total = cfg.schedule[0].duration;
+  let start = 0, end = cfg.rampAt[0], elapsed = 0, last = performance.now();
   const clockAt = (sec) => Math.floor(cfg.clock.start + (sec / total) * (cfg.clock.end - cfg.clock.start));
 
-  function enter(i) {
-    idx = i;
-    const st = steps[i];
-    left = st.duration;
-    S.set('day', st.day);
-    S.set('phase', st.phase);
-    S.set('timeLeft', total - before(i));
-    S.set('clock', clockAt(before(i)));
-    bus.emit('phase:change', { phase: st.phase, day: st.day, duration: st.duration, index: i });
+  function enter(day) {
+    start = day === 1 ? 0 : cfg.rampAt[day - 2];
+    end = day === 3 ? total : cfg.rampAt[day - 1];
+    elapsed = start;
+    S.set('day', day);
+    S.set('phase', 'play');
+    S.set('timeLeft', total - elapsed);
+    S.set('clock', clockAt(elapsed));
+    bus.emit('phase:change', { phase: 'play', day: day, duration: total });
   }
 
   setInterval(() => {
@@ -28,11 +23,13 @@
     const dt = Math.min((now - last) / 1000, 0.5) * cfg.speed;
     last = now;
     if (S.get('phase') === 'win' || S.get('phase') === 'lose') return;
-    left -= dt;
-    if (left <= 0) { enter(idx); return; }   // loop the current phase forever
+    elapsed += dt;
+    if (elapsed >= end) { enter(S.get('day')); return; }
+    const left = total - elapsed, clock = clockAt(elapsed);
+    S.set('timeLeft', Math.ceil(left));
     S.set('phaseTimeLeft', Math.ceil(left));
-    S.set('clock', clockAt(before(idx) + steps[idx].duration - left));
-    bus.emit('tick', { dt: dt, phase: S.get('phase'), day: S.get('day'), t: steps[idx].duration - left, phaseTimeLeft: left });
+    S.set('clock', clock);
+    bus.emit('tick', { dt: dt, phase: 'play', day: S.get('day'), t: elapsed, phaseTimeLeft: left, clock: clock });
   }, 100);
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -58,13 +55,12 @@
     head.innerHTML = '<b>DEV KIT</b> (not part of the game)';
     panel.appendChild(head);
 
-    const r1 = row('Jump to phase (D = shift, N = lockdown)');
-    steps.forEach((s, i) => r1.appendChild(btn(s.phase[0].toUpperCase() + s.day, () => enter(i))));
+    const r1 = row('Jump to alert level');
+    [1, 2, 3].forEach((day) => r1.appendChild(btn('ALERT ' + day, () => enter(day))));
     r1.appendChild(btn('WIN', () => { S.set('phase', 'win'); bus.emit('phase:change', { phase: 'win', day: S.get('day'), reason: 'launched' }); }));
     r1.appendChild(btn('LOSE', () => { S.set('phase', 'lose'); bus.emit('phase:change', { phase: 'lose', day: S.get('day'), reason: 'late' }); }));
 
     const r2 = row('State');
-    r2.appendChild(btn('+1 flare', () => S.add('flares', 1)));
     r2.appendChild(btn('+1 battery', () => S.add('battery', 1)));
     r2.appendChild(btn('power 100', () => S.set('power', 100)));
 
@@ -113,8 +109,11 @@
     // ── pretend to be the cameras ──
     if (!has('cameras')) {
       const r = row('Pretend to be the cameras');
-      [0, 1, 2, 3].forEach((l) => r.appendChild(btn('threat ' + l, () => bus.emit('night:threat', { level: l, side: 'L' }))));
-      r.appendChild(btn('blackout', () => bus.emit('night:blackout')));
+      [0, 1, 2, 3].forEach((l) => r.appendChild(btn('threat ' + l, () => bus.emit('creature:threat', { level: l, side: 'L', kind: 'walker' }))));
+      r.appendChild(btn('blackout', () => bus.emit('creature:blackout')));
+    } else {
+      const r = row('Spawn a creature');
+      ['walker', 'crawler', 'brute', 'stalker'].forEach((kind) => r.appendChild(btn(kind, () => bus.emit('dev:spawn', { kind: kind }))));
     }
 
     const log = document.createElement('div');
@@ -122,7 +121,7 @@
     log.textContent = 'event log:';
     panel.appendChild(log);
     const add = (s) => { log.textContent += '\n' + s; log.scrollTop = log.scrollHeight; };
-    ['night:caught', 'night:blackout', 'team:died', 'team:hurt', 'team:dispatched', 'objective:done', 'dispatch:request', 'launch:request']
+    ['creature:caught', 'creature:blackout', 'team:died', 'team:hurt', 'team:dispatched', 'objective:done', 'dispatch:request', 'launch:request']
       .forEach((evt) => bus.on(evt, (d) => add(evt + ' ' + JSON.stringify(d || {}))));
     bus.on('sfx', (n) => add('sfx ' + (n && n.name || n)));
 
@@ -131,6 +130,6 @@
     head.addEventListener('click', () => { [...panel.children].slice(1).forEach((c) => { c.hidden = !c.hidden; }); });
 
     document.body.appendChild(panel);
-    enter(0);
+    enter(1);
   });
 })();

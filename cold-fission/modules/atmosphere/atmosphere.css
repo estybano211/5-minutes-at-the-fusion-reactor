@@ -1,9 +1,8 @@
-/* MODULE: atmosphere (Person D). Every class here starts with fx-. */
+/* CRT and threat effects. Every class here starts with fx-. */
 .fx-scan { position: absolute; inset: 0; background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, .18) 3px); mix-blend-mode: multiply; }
 .fx-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, .55) 100%); transition: opacity 1s; }
-#stage.phase-night .fx-vignette { background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, .8) 100%); }
 .fx-alert { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(229, 72, 77, 0) 50%, rgba(229, 72, 77, .35) 100%); }
-#stage.phase-night[data-day="3"] .fx-alert { animation: fx-pulse 2s ease-in-out infinite; }
+.fx-alert.on { animation: fx-pulse 2s ease-in-out infinite; }
 .fx-flash { position: absolute; inset: 0; opacity: 0; }
 .fx-flash.on { animation: fx-flash .45s ease-out; }
 .fx-mute { pointer-events: auto; padding: 0 8px; background: transparent; border: 1px solid var(--line); font-family: var(--font-display); font-size: 16px; letter-spacing: .1em; color: var(--amber-dim); }
@@ -13,6 +12,6 @@
 @keyframes fx-flash { from { opacity: .85; } to { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  #stage.phase-night[data-day="3"] .fx-alert { animation: none; opacity: .5; }
+  .fx-alert.on { animation: none; opacity: .5; }
   .fx-flash.on { animation-duration: .01s; }
 }

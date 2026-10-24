@@ -1,4 +1,4 @@
-/* CORE (Person A). Builds the control-room frame, the HUD and the start/intro/end overlay,
+/* Builds the control-room frame, the HUD and the start/intro/end overlay,
    scales the stage to the window, then mounts every registered module into its slots.
    A module that throws in mount() is logged and skipped; the rest of the game keeps running. */
 (function () {
@@ -8,8 +8,7 @@
   const LABEL = {
     boot: () => 'STANDBY',
     intro: () => 'BRIEFING',
-    day: (d) => 'SHIFT ' + d,
-    night: (d) => 'LOCKDOWN ' + d,
+    play: (d) => 'ALERT LEVEL ' + d,
     win: () => 'LAUNCHED',
     lose: () => 'LOST',
   };
@@ -17,7 +16,7 @@
     'An asteroid strike has taken out every satellite. Earth cannot hear you.',
     'The plant is already leaking. At ' + endClock + ' it melts down completely. It is ' + cfg.fmtClock(cfg.clock.start) + ' now.',
     'The escape ship needs ' + cfg.objectives.length + ' things done before it can fly. Your crew can do them. You cannot leave the control room.',
-    'Send them out, then talk them through every locked door.',
+    'Send them out and guide them through each obstacle. Watch both halls while you help.',
     ['The payroll system is still running.', 'dim'],
   ];
   const aliveCrew = () => { const t = S.get('team'); return t.length ? t.filter((x) => x.status !== 'dead').length : cfg.crew.length; };
@@ -49,17 +48,17 @@
         <div id="fx" data-slot="fx"></div>
         <div id="overlay" data-mode="none">
           <div class="ov-panel" id="ov-start">
-            <h1 class="ov-title">COLD FISSION</h1>
-            <p class="ov-sub">Control room, Halcyon Reactor, dark side of the Moon.</p>
-            <button class="ov-btn" id="btn-start">BEGIN SHIFT</button>
-            <p class="ov-keys">Click the screens · <kbd>1</kbd><kbd>2</kbd> cameras · <kbd>A</kbd><kbd>D</kbd> shutters · <kbd>F</kbd> flare</p>
+            <h1 class="ov-title ov-start-title">8 MINUTES AT<br>FUSION REACTOR</h1>
+            <p class="ov-sub">Control room, Halcyon Fusion Reactor, dark side of the Moon.</p>
+            <button class="ov-btn" id="btn-start">BEGIN</button>
+            <p class="ov-keys">Click the screens · <kbd>1</kbd><kbd>2</kbd> cameras · <kbd>A</kbd><kbd>D</kbd> shutters</p>
           </div>
           <div class="ov-panel" id="ov-intro">
             ${INTRO.map((l, i) => {
               const [text, cls] = Array.isArray(l) ? l : [l, ''];
               return `<p class="${cls}" style="animation-delay:${0.4 + i * 1.3}s">${text}</p>`;
             }).join('')}
-            <button class="ov-btn" id="btn-intro">START SHIFT</button>
+            <button class="ov-btn" id="btn-intro">START RUN</button>
           </div>
           <div class="ov-panel" id="ov-end">
             <h1 class="ov-title" id="ov-title"></h1>
@@ -121,6 +120,10 @@
         $('ov-reason').textContent = e.text();
         overlay.dataset.mode = 'end';
       } else overlay.dataset.mode = 'none';
+    });
+    bus.on('state:day', (day) => {
+      stage.dataset.day = day;
+      if (S.get('phase') === 'play') $('hud-phase').textContent = LABEL.play(day);
     });
   }
 

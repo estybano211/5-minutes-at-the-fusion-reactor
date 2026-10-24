@@ -1,4 +1,4 @@
-/* MODULE: board (Person D). Every class here starts with bd-. */
+/* Escape Board classes start with bd-. */
 .bd { display: flex; flex-direction: column; height: 100%; padding: 8px 12px 10px; gap: 4px; }
 .bd-sec { display: flex; justify-content: space-between; font-family: var(--font-display); font-size: 17px; letter-spacing: .14em; color: var(--amber-dim); border-bottom: 2px solid var(--line); line-height: 1.1; }
 

@@ -1,8 +1,8 @@
-/* CORE (Person A). The only things every module may rely on:
+/* Shared bus, state, and module registry:
      CF.bus       on / off / emit       modules talk through events, never by calling each other
      CF.state     get / set / add       shared game numbers (key list is in README.md)
      CF.register  module registry       see "Module contract" in README.md
-   Only Person A edits files in /core. */
+*/
 (function () {
   const CF = (window.CF = window.CF || {});
 
@@ -23,13 +23,12 @@
   };
 
   const initial = () => ({
-    phase: 'boot',      // boot | intro | day | shop | night | win | lose
-    day: 0,             // 1..3
-    team: [],           // crew records, written ONLY by the tasks module (shape: CF.config.initialCrew)
-    objectives: [],     // escape checklist, written ONLY by the tasks module (shape: CF.config.initialObjectives)
-    power: 100,         // 0..100, only meaningful during a lockdown
+    phase: 'boot',      // boot | intro | play | win | lose
+    day: 0,             // ramp level 1..3; also passed to minigames as opts.day
+    team: [],           // crew records, written by the tasks module
+    objectives: [],     // escape checklist, written by the tasks module
+    power: 100,         // continuous 0..100 pool
     battery: 0,         // extra batteries found (each cuts power drain by 15%)
-    flares: 0,          // flares found
     clock: 943,         // wall clock in minutes since midnight: 943 = 15:43, 1500 = 01:00 next day
     timeLeft: 480,      // game-seconds until the clock reaches its end (01:00)
     phaseTimeLeft: 0,

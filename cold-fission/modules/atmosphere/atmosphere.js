@@ -1,10 +1,4 @@
-/* ─────────────────────────────────────────────────────────────────────────
-   MODULE: atmosphere      OWNER: Person D (Store & Atmosphere)
-   Owns   sound (plays every 'sfx' event), the CRT look, red-alert lighting, screen flashes,
-          the Geiger ticks, and the extra story text on the ending screen.
-   Reads  events: sfx, fx:flash, night:threat, night:blackout, phase:change, tick
-   Writes nothing in state. Emits nothing. If this module is missing the game is just silent and plain.
-   ───────────────────────────────────────────────────────────────────────── */
+/* Sound, CRT look, threat lighting and ending text. */
 (function () {
   const CF = window.CF, bus = CF.bus;
 
@@ -26,6 +20,7 @@
     const fx = slots.fx;
     fx.innerHTML = '<div class="fx-scan"></div><div class="fx-vignette"></div><div class="fx-alert"></div><div class="fx-flash"></div>';
     const flash = fx.querySelector('.fx-flash');
+    const alert = fx.querySelector('.fx-alert');
 
     // The mute button lives in the HUD slot.
     if (slots.hud) {
@@ -47,18 +42,23 @@
       flash.classList.remove('on'); void flash.offsetWidth; flash.classList.add('on');
     });
 
-    bus.on('night:threat', (e) => { threatLevel = e.level; });
-    bus.on('night:blackout', () => bus.emit('fx:flash', '#300'));
+    bus.on('creature:threat', (e) => {
+      if (e.level === 3 && threatLevel < 3) CF.audio.play('alarm');
+      threatLevel = e.level;
+      alert.classList.toggle('on', e.level >= 2);
+      CF.audio.droneLevel(e.level >= 2 ? 0.8 : 0.2);
+    });
+    bus.on('creature:blackout', () => bus.emit('fx:flash', '#300'));
 
     bus.on('tick', (e) => {
-      if (e.phase !== 'night') return;
+      if (e.phase !== 'play') return;
       if (Math.random() < GEIGER_PER_SEC[threatLevel] * e.dt) CF.audio.play('geiger');
     });
 
     bus.on('phase:change', (e) => {
       threatLevel = 0;
-      CF.audio.droneLevel(e.phase === 'night' ? 1 : e.phase === 'day' ? 0.2 : 0);
-      if (e.phase === 'night') CF.audio.play('alarm');
+      alert.classList.remove('on');
+      CF.audio.droneLevel(e.phase === 'play' ? 0.2 : 0);
       if (e.phase === 'win') { CF.audio.play('win'); showEnding(slots.ending, ENDINGS.win); }
       if (e.phase === 'lose') { CF.audio.play('lose'); showEnding(slots.ending, ENDINGS[e.reason] || []); }
     });
