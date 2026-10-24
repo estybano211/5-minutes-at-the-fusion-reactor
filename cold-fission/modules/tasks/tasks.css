@@ -1,4 +1,4 @@
-/* MODULE: tasks (Person C). Every class here starts with tk- or bk- (a new minigame picks its own prefix). */
+/* Crew terminal. Every class here starts with tk- or bk-. */
 .tk { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 12px; gap: 10px; position: relative; }
 
 .tk-log { display: flex; flex-direction: column; gap: 4px; min-height: 118px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
@@ -8,7 +8,7 @@
 .tk-line.static { color: var(--teal); }
 
 .tk-reqs { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow: hidden; }
-.tk[data-mode="working"] .tk-reqs, .tk[data-mode="locked"] .tk-reqs { display: none; }
+.tk[data-mode="working"] .tk-reqs { display: none; }
 .tk-sec { font-family: var(--font-display); font-size: 18px; letter-spacing: .14em; color: var(--amber-dim); }
 .tk-list { display: flex; flex-direction: column; gap: 8px; }
 .tk-empty { font-size: 12px; color: var(--amber-dim); }
@@ -34,10 +34,6 @@
 .tk-bar { height: 8px; border: 2px solid var(--line); }
 .tk-bar i { display: block; height: 100%; width: 100%; background: var(--teal); }
 .tk-game { flex: 1; min-height: 0; display: grid; place-items: center; }
-
-.tk-lock { display: none; flex: 1; border: 2px dashed var(--line); place-items: center; text-align: center; font-family: var(--font-display); font-size: 34px; letter-spacing: .2em; color: var(--amber-dim); line-height: 1.1; }
-.tk-lock small { font-size: 18px; letter-spacing: .1em; }
-.tk[data-mode="locked"] .tk-lock { display: grid; }
 
 /* minigame: blocks */
 .bk { display: flex; flex-direction: column; align-items: center; gap: 8px; }

@@ -1,4 +1,4 @@
-/* MODULE: atmosphere / audio (Person D). Every sound is synthesised, so there are no audio files yet.
+/* Synthesised audio. There are no audio files.
    To use real recordings later, replace the body of a function in SFX with an <audio> or buffer play. */
 (function () {
   const CF = window.CF;
@@ -59,7 +59,6 @@
     chime()     { tone(520, 0.06, 'square', 0.09); later(() => tone(780, 0.06, 'square', 0.09), 70); later(() => tone(1040, 0.12, 'square', 0.09), 140); },
     knock()     { noise(0.12, 0.5, 300); later(() => noise(0.12, 0.5, 260), 170); },
     shutter()   { noise(0.35, 0.25, 900); tone(90, 0.3, 'sawtooth', 0.1, 60); },
-    flare()     { noise(0.8, 0.3, 2500, 'highpass'); },
     powerdown() { tone(220, 1.2, 'sawtooth', 0.18, 30); },
     geiger()    { noise(0.015, 0.25, 3000, 'highpass'); },
     static()    { noise(0.25, 0.14, 2000); },

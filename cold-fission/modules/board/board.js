@@ -1,13 +1,4 @@
-/* ─────────────────────────────────────────────────────────────────────────
-   MODULE: board      OWNER: Person D (Board and Atmosphere)
-   Owns   the Escape Board screen (right): the crew list, the escape checklist, dispatching and LAUNCH.
-   Reads  state: team, objectives, phase       (written by the tasks module; you never change them)
-   Emits  dispatch:request {crew, objective}   the tasks module starts the trip
-          launch:request                       Core wins the game if every objective is done
-          sfx <name>
-   Flow: click a crew member to select them, then click an objective to send them there.
-   The rows are built once and updated in place, so a click is never lost to a re-render.
-   ───────────────────────────────────────────────────────────────────────── */
+/* Escape Board: crew selection, checklist, dispatch and LAUNCH. */
 (function () {
   const CF = window.CF, S = CF.state, bus = CF.bus, cfg = CF.config;
 
@@ -22,7 +13,7 @@
 
   function render() {
     const team = S.get('team'), objs = S.get('objectives');
-    const day = S.get('phase') === 'day';
+    const active = S.get('phase') === 'play';
     const done = objs.filter((o) => o.done).length;
     const alive = team.filter((t) => t.status !== 'dead');
     const all = objs.length > 0 && done === objs.length;
@@ -30,22 +21,21 @@
     team.forEach((t) => {
       const e = crewEl[t.id];
       if (!e) return;
-      const free = t.status === 'idle' && !t.cover && day;
+      const free = t.status === 'idle' && active;
       e.btn.disabled = !free;
       e.btn.classList.toggle('is-sel', sel === t.id);
       e.btn.classList.toggle('is-dead', t.status === 'dead');
-      e.btn.classList.toggle('is-stuck', t.status === 'stuck' && !t.cover);
-      e.btn.classList.toggle('is-cover', !!t.cover);
+      e.btn.classList.toggle('is-stuck', t.status === 'stuck');
       e.pips.forEach((p, i) => p.classList.toggle('on', i < t.hp));
       const place = t.at ? (cfg.objectives.find((o) => o.id === t.at) || {}).place : '';
-      e.st.textContent = t.cover ? 'COVER' : (t.status === 'travel' || t.status === 'work' ? STATUS[t.status] + ' · ' + place : STATUS[t.status]);
+      e.st.textContent = t.status === 'travel' || t.status === 'work' ? STATUS[t.status] + ' · ' + place : STATUS[t.status];
     });
-    if (sel && !team.some((t) => t.id === sel && t.status === 'idle' && !t.cover) ) sel = null;
+    if (sel && !team.some((t) => t.id === sel && t.status === 'idle')) sel = null;
 
     objs.forEach((o) => {
       const e = objEl[o.id];
       if (!e) return;
-      const avail = !o.done && !o.by && !o.locked && day;
+      const avail = !o.done && !o.by && !o.locked && active;
       e.btn.disabled = !(avail && sel);
       e.btn.classList.toggle('is-done', o.done);
       e.btn.classList.toggle('is-locked', o.locked && !o.done);
@@ -64,8 +54,7 @@
     if (hintOverride) hint.textContent = hintOverride;
     else if (all) hint.textContent = 'Checklist complete. Launch when ready.';
     else if (!alive.length && team.length) hint.textContent = 'Nobody is left to send.';
-    else if (S.get('phase') === 'night') hint.textContent = 'Lockdown: the crew is taking cover.';
-    else if (S.get('phase') !== 'day') hint.textContent = '';
+    else if (!active) hint.textContent = '';
     else hint.textContent = sel ? 'Now pick an objective.' : 'Select a crew member, then an objective.';
   }
 

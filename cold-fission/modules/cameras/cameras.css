@@ -1,29 +1,55 @@
-/* MODULE: cameras (Person B). Every class here starts with cam- or ctl-. */
+/* Camera and shutter classes start with cam- or ctl-. */
 .cam-view { position: relative; background: #050909; border-bottom: 2px solid var(--line); }
 .cam-canvas { display: block; width: 100%; height: auto; aspect-ratio: 220 / 130; image-rendering: pixelated; }
 .cam-label { position: absolute; left: 10px; top: 6px; font-family: var(--font-display); font-size: 22px; color: var(--teal); text-shadow: 0 0 6px rgba(111, 183, 176, .6); }
 .cam-rec { position: absolute; right: 10px; top: 8px; font-family: var(--font-display); font-size: 20px; color: var(--danger); animation: blink 1.4s steps(2) infinite; }
 .cam-off { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 40px; letter-spacing: .2em; color: var(--danger); }
 .cam-view.off .cam-off { display: flex; }
+/* Caption when a shutter starts moving, and the flashing warning when the creature is at an open door. */
+.cam-toast { position: absolute; left: 0; right: 0; top: 36px; text-align: center; pointer-events: none; opacity: 0; font-family: var(--font-display); font-size: 24px; letter-spacing: .12em; color: var(--amber); text-shadow: 0 0 6px rgba(232, 180, 90, .6); }
+.cam-toast.go { animation: cam-toast 1.1s ease-out forwards; }
+.cam-alert { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; pointer-events: none; font-family: var(--font-display); font-size: 26px; letter-spacing: .08em; color: var(--danger); text-shadow: 0 0 8px rgba(229, 72, 77, .8); animation: cam-blink .4s steps(2) infinite; }
+@keyframes cam-toast { 0% { opacity: 1; transform: translateY(-8px); } 70% { opacity: 1; } 100% { opacity: 0; transform: none; } }
+@keyframes cam-blink { 50% { opacity: .25; } }
+@keyframes cam-alarm { 50% { background: rgba(229, 72, 77, .3); } }
 
 .cam-tabs { display: flex; gap: 6px; padding: 8px; }
 .cam-tab { flex: 1; padding: 5px 4px; background: transparent; border: 2px solid var(--line); font-family: var(--font-display); font-size: 19px; letter-spacing: .06em; color: var(--amber-dim); }
 .cam-tab:hover { border-color: var(--amber-dim); }
 .cam-tab.on { border-color: var(--teal); color: var(--teal); }
+.cam-tab.alert { border-color: var(--danger); color: var(--danger); animation: cam-blink .4s steps(2) infinite; }
 
 .cam-status { display: grid; gap: 6px; padding: 4px 12px; font-family: var(--font-display); font-size: 20px; color: var(--amber-dim); }
 .cam-row { display: flex; justify-content: space-between; align-items: center; }
 .cam-row b { font-weight: 400; color: var(--amber); }
 .cam-row b.sealed { color: var(--ok); }
+.cam-row b.moving { color: var(--teal); }
+.cam-row b.alarm, .cam-row b.low { color: var(--danger); }
+.cam-row b.alarm { animation: cam-blink .4s steps(2) infinite; }
+.cam-sensor { font-style: normal; color: var(--teal); font-size: 15px; }
 .rad { display: flex; gap: 5px; }
 .rad i { width: 34px; height: 12px; border: 2px solid var(--line); }
 .rad i.on { background: var(--danger); border-color: var(--danger); }
 
-.ctl { display: grid; grid-template-columns: 1fr 220px 1fr; gap: 10px; height: 100%; padding: 8px; }
-.ctl-btn { display: flex; align-items: center; justify-content: space-between; padding: 0 22px; background: transparent; border: 2px solid var(--amber-dim); font-family: var(--font-display); font-size: 30px; letter-spacing: .1em; color: var(--amber); }
+.ctl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: 100%; padding: 8px; }
+.ctl-btn { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; background: transparent; border: 2px solid var(--amber-dim); font-family: var(--font-display); font-size: 30px; letter-spacing: .1em; color: var(--amber); transition: color .15s .12s, border-color .15s; }
+.ctl-btn small { display: block; font-family: var(--font-body); font-size: 11px; line-height: 1; letter-spacing: .06em; color: var(--amber-dim); }
+.ctl-west { border-width: 3px; }
+.ctl-east { border-style: dashed; }
+.ctl-btn.sealed small { color: var(--bg); }
 .ctl-btn:hover { background: rgba(232, 180, 90, .08); }
-.ctl-btn.sealed { background: var(--ok); border-color: var(--ok); color: var(--bg); }
+.ctl-btn > * { position: relative; }
+/* The green fill rolls down the button like a shutter when it is closed, and back up when it opens. */
+.ctl-btn::before { content: ''; position: absolute; inset: 0; background: var(--ok); transform: scaleY(0); transform-origin: top; transition: transform .35s cubic-bezier(.55, 0, .9, .5); }
+.ctl-btn.sealed::before { transform: scaleY(1); }
+.ctl-btn.sealed { border-color: var(--ok); color: var(--bg); }
 .ctl-btn.sealed kbd { color: var(--bg); border-color: var(--bg); }
-.ctl-btn.flare { justify-content: center; gap: 18px; border-color: var(--line); }
+.ctl-btn.closing { border-color: var(--teal); color: var(--teal); }
+.ctl-btn.alarm { border-color: var(--danger); color: var(--danger); animation: cam-alarm .4s steps(2) infinite; }
 .ctl-btn b { font-weight: 400; }
 .ctl.idle .ctl-btn { opacity: .35; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-alert, .cam-tab.alert, .cam-row b.alarm, .ctl-btn.alarm { animation: none; }
+  .ctl-btn::before { transition: none; }
+}
