@@ -4,16 +4,17 @@
   const total = cfg.schedule[0].duration;
   const clk = cfg.clock;
 
-  let elapsed = 0, last = 0, running = false;
+  let elapsed = 0, last = 0, running = false, finale = false;
   S.set('timeLeft', total);
   S.set('clock', clk.start);
 
   const complete = () => { const o = S.get('objectives'); return o.length > 0 && o.every((x) => x.done); };
+  const readyForFinale = () => { const o = S.get('objectives'); return o.length > 0 && o.every((x) => x.done || x.finale) && o.some((x) => x.finale && !x.done); };
   const crewAlive = () => S.get('team').filter((t) => t.status !== 'dead').length;
 
   function finish(result, reason) {
     if (!running) return;
-    running = false;
+    running = false; finale = false;
     S.set('phase', result);
     bus.emit('phase:change', { phase: result, day: S.get('day'), reason: reason });
   }
@@ -39,6 +40,18 @@
     else bus.emit('sfx', 'deny');
   });
 
+  // The last objective is the player's own: the run clock stops while they are in the cockpit (modules/cockpit/).
+  bus.on('finale:request', () => {
+    if (!running || finale || S.get('phase') !== 'play' || !readyForFinale()) { bus.emit('sfx', 'deny'); return; }
+    finale = true;
+    S.set('phase', 'finale');
+    bus.emit('phase:change', { phase: 'finale', day: S.get('day') });
+  });
+  bus.on('finale:failed', () => {
+    if (!running || !finale || cfg.god) return;
+    finish('lose', 'glass');
+  });
+
   bus.on('team:died', () => {
     if (running && !complete() && crewAlive() === 0) finish('lose', 'alone');
   });
@@ -51,7 +64,7 @@
   setInterval(() => {
     if (!running) return;
     const now = performance.now();
-    if (S.get('paused')) { last = now; return; }   // a modal (minigame tips) freezes the whole run
+    if (S.get('paused') || finale) { last = now; return; }   // a modal (minigame tips) or the cockpit finale freezes the run clock
     const real = Math.min((now - last) / 1000, 0.5);   // a hidden tab effectively pauses the game
     last = now;
     const dt = real * cfg.speed;

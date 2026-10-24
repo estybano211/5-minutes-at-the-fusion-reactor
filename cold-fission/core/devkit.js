@@ -23,7 +23,7 @@
     const dt = Math.min((now - last) / 1000, 0.5) * cfg.speed;
     last = now;
     if (S.get('paused')) return;
-    if (S.get('phase') === 'win' || S.get('phase') === 'lose') return;
+    if (S.get('phase') === 'win' || S.get('phase') === 'lose' || S.get('phase') === 'finale') return;
     elapsed += dt;
     if (elapsed >= end) { enter(S.get('day')); return; }
     const left = total - elapsed, clock = clockAt(elapsed);
@@ -59,6 +59,7 @@
     const r1 = row('Jump to alert level');
     [1, 2, 3].forEach((day) => r1.appendChild(btn('ALERT ' + day, () => enter(day))));
     r1.appendChild(btn('WIN', () => { S.set('phase', 'win'); bus.emit('phase:change', { phase: 'win', day: S.get('day'), reason: 'launched' }); }));
+    r1.appendChild(btn('FINALE', () => { S.set('phase', 'finale'); bus.emit('phase:change', { phase: 'finale', day: S.get('day') }); }));
     r1.appendChild(btn('LOSE', () => { S.set('phase', 'lose'); bus.emit('phase:change', { phase: 'lose', day: S.get('day'), reason: 'late' }); }));
 
     const r2 = row('State');
@@ -122,7 +123,10 @@
     log.textContent = 'event log:';
     panel.appendChild(log);
     const add = (s) => { log.textContent += '\n' + s; log.scrollTop = log.scrollHeight; };
-    ['creature:caught', 'creature:blackout', 'team:died', 'team:hurt', 'team:dispatched', 'objective:done', 'dispatch:request', 'launch:request']
+    // Stand-in for the director's ending rules after the cockpit finale.
+    bus.on('finale:done', () => { S.set('phase', 'win'); bus.emit('phase:change', { phase: 'win', day: S.get('day'), reason: 'launched' }); });
+    bus.on('finale:failed', () => { S.set('phase', 'lose'); bus.emit('phase:change', { phase: 'lose', day: S.get('day'), reason: 'glass' }); });
+    ['finale:request', 'finale:done', 'finale:failed', 'creature:caught', 'creature:blackout', 'team:died', 'team:hurt', 'team:dispatched', 'objective:done', 'dispatch:request', 'launch:request']
       .forEach((evt) => bus.on(evt, (d) => add(evt + ' ' + JSON.stringify(d || {}))));
     bus.on('sfx', (n) => add('sfx ' + (n && n.name || n)));
 

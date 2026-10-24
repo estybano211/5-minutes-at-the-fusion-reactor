@@ -9,14 +9,16 @@
     boot: () => 'STANDBY',
     intro: () => 'BRIEFING',
     play: (d) => 'ALERT LEVEL ' + d,
+    finale: () => 'IN THE COCKPIT',
     win: () => 'LAUNCHED',
     lose: () => 'LOST',
   };
   const INTRO = [
     'An asteroid strike has taken out every satellite. Earth cannot hear you.',
     'The plant is already leaking. At ' + endClock + ' it melts down completely. It is ' + cfg.fmtClock(cfg.clock.start) + ' now.',
-    'The escape ship needs ' + cfg.objectives.length + ' things done before it can fly. Your crew can do them. You cannot leave the control room.',
+    'The escape ship needs ' + cfg.objectives.length + ' things done before it can fly. Your crew can do ' + (cfg.objectives.length - 1) + ' of them. You cannot leave the control room, not yet.',
     'Send them out and guide them through each obstacle. Watch both halls while you help.',
+    'The last one is yours: when the crew are aboard, you go to the ship and prime the ignition by hand.',
     'A crew member who gets hurt must rest for two hours. A second wound is fatal.',
     ['The payroll system is still running.', 'dim'],
   ];
@@ -26,13 +28,22 @@
     caught:   { title: 'OVERRUN',       text: () => 'A gate stayed open one second too long.' },
     late:     { title: 'MELTDOWN',      text: () => 'The clock reached ' + endClock + '. The checklist was not finished.' },
     alone:    { title: 'ABANDONED',     text: () => 'Nobody is left to send. The ship will never fly.' },
+    glass:    { title: 'BREACH',        text: () => 'The glass gave way before the ignition was primed.' },
   };
+
+  // The radiation trefoil that marks the reactor on the main panel: a hub and three blades, drawn from numbers.
+  function trefoil() {
+    const P = (r, deg) => { const a = deg * Math.PI / 180; return (50 + r * Math.cos(a)).toFixed(1) + ' ' + (50 - r * Math.sin(a)).toFixed(1); };
+    const blade = (c) => 'M' + P(19, c - 30) + 'L' + P(47, c - 30) + 'A47 47 0 0 0 ' + P(47, c + 30) + 'L' + P(19, c + 30) + 'A19 19 0 0 1 ' + P(19, c - 30) + 'Z';
+    return '<svg id="hud-atom" viewBox="0 0 100 100" aria-label="Reactor" role="img"><circle cx="50" cy="50" r="48.5" fill="none" stroke="currentColor" stroke-width="3"/>' +
+      '<path fill="currentColor" d="' + [90, 210, 330].map(blade).join('') + '"/><circle cx="50" cy="50" r="8.5" fill="currentColor"/></svg>';
+  }
 
   function build(root) {
     root.innerHTML = `
       <div id="stage" class="phase-boot">
         <header id="hud">
-          <div id="hud-left"><span id="hud-phase">STANDBY</span><span id="hud-slot" data-slot="hud"></span></div>
+          <div id="hud-left">${trefoil()}<span id="hud-phase">STANDBY</span><span id="hud-slot" data-slot="hud"></span></div>
           <div id="hud-center"><span class="hud-label">MELTDOWN AT ${endClock}</span><span id="hud-timer">${cfg.fmtClock(S.get('clock'))}</span></div>
           <div id="hud-right">
             <span>CHECKLIST <b id="hud-done">0</b>/${cfg.objectives.length}</span>

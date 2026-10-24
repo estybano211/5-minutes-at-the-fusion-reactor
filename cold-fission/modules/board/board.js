@@ -40,13 +40,16 @@
       const e = objEl[o.id];
       if (!e) return;
       const avail = !o.done && !o.by && !o.locked && active;
-      e.btn.disabled = !(avail && sel);
+      // The finale is not a trip: it needs no crew member, only the five others done.
+      e.btn.disabled = !(avail && (sel || o.finale));
       e.btn.classList.toggle('is-done', o.done);
       e.btn.classList.toggle('is-locked', o.locked && !o.done);
-      e.btn.classList.toggle('is-avail', avail && !!sel);
+      e.btn.classList.toggle('is-avail', avail && (!!sel || !!o.finale));
+      e.btn.classList.toggle('is-finale', !!o.finale && avail);
       e.bar.style.width = Math.round(o.progress * 100) + '%';
       e.st.textContent = o.done ? 'DONE'
         : o.by ? nameOf(o.by).toUpperCase()
+        : o.finale ? (o.locked ? 'AFTER THE OTHER FIVE' : 'BOARD THE SHIP · YOU')
         : o.locked ? 'NEEDS ' + o.requires.map((id) => objName(id)).join(' + ').toUpperCase()
         : o.place.toUpperCase();
     });
@@ -55,8 +58,10 @@
     launch.disabled = !all;
     launch.classList.toggle('ready', all);
 
+    const finale = objs.find((o) => o.finale);
     if (hintOverride) hint.textContent = hintOverride;
     else if (all) hint.textContent = 'Checklist complete. Launch when ready.';
+    else if (active && finale && !finale.locked && !finale.done) hint.textContent = 'The crew are aboard. Board the ship and prime the ignition.';
     else if (!alive.length && team.length) hint.textContent = 'Nobody is left to send.';
     else if (!active) hint.textContent = '';
     else hint.textContent = sel ? 'Now pick an objective.' : 'Select a crew member, then an objective.';
@@ -88,6 +93,8 @@
     root.querySelectorAll('.bd-obj').forEach((b) => {
       objEl[b.dataset.id] = { btn: b, st: b.querySelector('.bd-ost'), bar: b.querySelector('.bd-prog i') };
       b.addEventListener('click', () => {
+        const o = S.get('objectives').find((x) => x.id === b.dataset.id);
+        if (o && o.finale) { bus.emit('finale:request'); return; }
         if (!sel) return;
         bus.emit('dispatch:request', { crew: sel, objective: b.dataset.id });
         sel = null;

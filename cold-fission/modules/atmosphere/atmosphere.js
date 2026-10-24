@@ -12,15 +12,17 @@
     caught: ['Nobody opens the gates after that.', 'The clock keeps running. Someone will see the light from Earth.'],
     late: ['The reactor does what it was always going to do.', 'The Company will be informed of your absence.'],
     alone: ['The control room is very quiet.', 'The reactor does not mind.'],
+    glass: ['The cockpit is very cold now.', 'The crew are still waiting for you to prime the ignition.'],
   };
 
   let threatLevel = 0, heartIn = 0;
 
   function mount(slots) {
     const fx = slots.fx;
-    fx.innerHTML = '<div class="fx-scan"></div><div class="fx-vignette"></div><div class="fx-alert"></div><div class="fx-flash"></div>';
+    fx.innerHTML = '<canvas class="fx-snow" width="192" height="108"></canvas><div class="fx-roll"></div><div class="fx-scan"></div><div class="fx-vignette"></div><div class="fx-alert"></div><div class="fx-flash"></div>';
     const flash = fx.querySelector('.fx-flash');
     const alert = fx.querySelector('.fx-alert');
+    startSnow(fx.querySelector('.fx-snow'));
 
     // The mute button lives in the HUD slot.
     if (slots.hud) {
@@ -35,7 +37,8 @@
     bus.on('game:start', () => CF.audio.init());
     document.addEventListener('pointerdown', () => CF.audio.init(), { once: true });
 
-    bus.on('sfx', (n) => CF.audio.play(typeof n === 'string' ? n : n && n.name));
+    // A sound is a name, or { name, pan, vol } for a sound placed in the stereo field (the cockpit glass).
+    bus.on('sfx', (n) => { if (typeof n === 'string') CF.audio.play(n); else if (n) CF.audio.play(n.name, n.pan, n.vol); });
 
     bus.on('fx:flash', (color) => {
       flash.style.background = color || '#fff';
@@ -61,10 +64,31 @@
     bus.on('phase:change', (e) => {
       threatLevel = 0; heartIn = 0;
       alert.classList.remove('on');
-      CF.audio.droneLevel(e.phase === 'play' ? 0.2 : 0);
+      CF.audio.droneLevel(e.phase === 'play' ? 0.2 : e.phase === 'finale' ? 0.02 : 0);   // the power is out in the cockpit
       if (e.phase === 'win') { CF.audio.play('win'); showEnding(slots.ending, ENDINGS.win); }
       if (e.phase === 'lose') { CF.audio.play('lose'); showEnding(slots.ending, ENDINGS[e.reason] || []); }
     });
+  }
+
+  /* A thin layer of TV snow over the whole picture: sparse bright specks redrawn about ten times a second, now and then a
+     torn line. The canvas is low resolution so the specks are chunky; CSS keeps it faint (stronger at higher alert). */
+  function startSnow(cv) {
+    const g = cv.getContext('2d'), W = cv.width, H = cv.height, img = g.createImageData(W, H), px = img.data;
+    const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function paint() {
+      px.fill(0);
+      for (let i = 0; i < W * H * 0.05; i++) {
+        const k = ((Math.random() * W * H) | 0) * 4, v = 150 + Math.random() * 105;
+        px[k] = px[k + 1] = v; px[k + 2] = v * 0.95; px[k + 3] = 40 + Math.random() * 110;
+      }
+      if (!calm && Math.random() < 0.08) {                        // a torn line that jumps sideways
+        const y = (Math.random() * H) | 0;
+        for (let x = 0; x < W; x++) { const k = (y * W + x) * 4; px[k] = px[k + 1] = px[k + 2] = 200; px[k + 3] = 30 + Math.random() * 70; }
+      }
+      g.putImageData(img, 0, 0);
+    }
+    paint();
+    if (!calm) setInterval(paint, 100);
   }
 
   function showEnding(el, lines) {

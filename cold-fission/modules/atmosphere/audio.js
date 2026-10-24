@@ -221,6 +221,26 @@
       noise(2.4, 0.07, 2600, 'highpass');                          // the first hiss of the engine
     },
     boom()      { tone(46, 1.8, 'sine', 0.7, 22); noise(1.5, 0.5, 260, 'lowpass'); later(() => noise(1.3, 0.25, 160, 'lowpass'), 280); },
+    // The cockpit finale. Every sound takes (pan, vol): the three panes of the windscreen are left, centre and right.
+    torch()     { tone(1700, 0.02, 'square', 0.05); noise(0.03, 0.08, 3000, 'bandpass', 0, 2); },
+    flip(p, v)  { tone(210, 0.06, 'square', 0.13 * v, 110); noise(0.05, 0.2 * v, 900, 'bandpass', 0, 2); later(() => tone(900, 0.02, 'square', 0.05), 50); },
+    dead()      { tone(260, 0.03, 'square', 0.04, 200); },
+    ckreset()   { for (let i = 0; i < 7; i++) later(() => noise(0.03, 0.2, 1500 + Math.random() * 2500, 'bandpass', 0, 3), i * 45); tone(95, 0.6, 'sawtooth', 0.18, 38); },
+    ckstep(p, v) { step(p, 0.55 * v); step(p, 0.55 * v, 460); },
+    ckbrute(p, v) { step(p, 1.1 * v); step(p, 1.1 * v, 700); growl(p, 0.16 * v); },
+    ckcrawl(p, v) { skitter(p, 12, 0.1 * v); },
+    ckwhisper(p, v) { whisper(p, 0.09 * v); later(() => wail(p, 0.03 * v), 400); },
+    slap(p, v)  { slam(p, 0.9 * v); noise(0.05, 0.3 * v, 3500, 'bandpass', p, 3); tone(1900, 0.05, 'triangle', 0.08 * v, 1500, p); },
+    tap(p, v)   { tone(1100, 0.03, 'triangle', 0.12 * v, 900, p); noise(0.03, 0.16 * v, 2500, 'bandpass', p, 3); },
+    crack(p, v) { for (let i = 0; i < 5; i++) later(() => noise(0.02, 0.22 * v, 2800 + Math.random() * 2200, 'bandpass', p, 6), i * 32); },
+    shriek(p, v) {
+      voice({ freqs: [780, 1170], dur: 0.95, to: 0.42, cut: 2600, vol: 0.28 * v, vib: 26, vibRate: 9, attack: 0.04, pan: p });
+      voice({ freqs: [62, 66, 124], dur: 0.8, to: 0.7, cut: 500, vol: 0.3 * v, trem: 22, depth: 0.9, attack: 0.05, pan: p });
+      noise(0.3, 0.2 * v, 3200, 'bandpass', p, 1);
+    },
+    creak(p, v) { voice({ freqs: [95, 143], type: 'triangle', dur: 1.1, to: 0.85, cut: 400, vol: 0.07 * v, vib: 3, attack: 0.5, pan: p }); },
+    shatter()   { noise(1.4, 0.5, 5200, 'highpass'); tone(70, 0.9, 'sine', 0.5, 30); for (let i = 0; i < 12; i++) later(() => noise(0.03, 0.2, 3000 + Math.random() * 3000, 'bandpass', 0, 4), 60 + i * 55); },
+    ignite()    { noise(2.6, 0.4, 240, 'lowpass'); tone(38, 2.6, 'sawtooth', 0.4, 120); later(() => tone(60, 0.5, 'sine', 0.5, 28), 150); },
     win()       { [523, 659, 784, 1046].forEach((f, i) => later(() => tone(f, 0.22, 'square', 0.1), i * 140)); },
     lose()      { tone(110, 1.4, 'sawtooth', 0.22, 28); },
     death()     { noise(0.5, 0.45, 500); tone(60, 0.8, 'sawtooth', 0.25, 30); },
@@ -228,7 +248,7 @@
 
   CF.audio = {
     init: init,
-    play(name) { try { if (ac && SFX[name]) SFX[name](); } catch (e) { console.warn('[audio]', name, e); } },
+    play(name, pan, vol) { try { if (ac && SFX[name]) SFX[name](pan || 0, vol == null ? 1 : vol); } catch (e) { console.warn('[audio]', name, e); } },
     creature(kind, stage, side, again) {
       try { if (ac && CREATURE[kind]) CREATURE[kind](stage, side === 'L' ? -0.75 : 0.75, again); } catch (e) { console.warn('[audio]', kind, e); }
     },

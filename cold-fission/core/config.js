@@ -13,6 +13,7 @@
   // What must be done before the escape ship can fly. Each objective is a trip: the crew member travels there,
   // does some work, and gets stuck at every obstacle until the player helps over the intercom.
   //   kind     'item' (bring something back) or 'op' (do something on site)
+  //   finale   true: no crew trip; the player does it alone once `requires` are done (see "Prime the ignition")
   //   travel   seconds to get there        work   seconds of work before each obstacle and after the last one
   //   requires ids that must be done first bonus  'power' (+25 power) | 'battery' (-15% drain) | null, found on the way back
   //   stages   one obstacle each; `game` is the minigame id that solves it, `opts` is passed to that minigame
@@ -41,11 +42,10 @@
       stages: [
         { say: 'The power grid is jammed. Clear a row to reroute it.', game: 'blocks', opts: { rows: 1, garbage: 2, difficulty: 1 } },
       ] },
-    { id: 'ignition', name: 'Prime the ignition', kind: 'op', place: 'Flight deck', travel: 15, work: 10, requires: ['fuelcell', 'power'], bonus: null,
-      stages: [
-        { say: 'Set the ignition switches in the right order.', game: 'switches', opts: { difficulty: 2 } },
-        { say: 'Final ignition check. Set every lever now!', game: 'switches', opts: { difficulty: 3 } },
-      ] },
+    // The finale is not a crew trip. Once the other five are done the crew are aboard the ship, and the player goes there
+    // alone (modules/cockpit/): a dark cockpit, a flashlight, a launch card and things outside the glass.
+    { id: 'ignition', name: 'Prime the ignition', kind: 'op', place: 'Ship cockpit', finale: true, travel: 0, work: 0,
+      requires: ['navcore', 'fuelcell', 'coupler', 'purge', 'power'], bonus: null, stages: [] },
   ];
 
   CF.config = {
@@ -55,6 +55,7 @@
     // URL options for testing: ?speed=5 (clock 5x faster), ?god=1 (cannot be caught), ?crew=2 (start with only 2 crew).
     speed: Math.max(0.1, Number(q.get('speed')) || 1),
     god: q.get('god') === '1',
+    skipToFinale: q.get('finale') === '1',     // ?finale=1: the first five objectives start done, so the cockpit can be tried at once
 
     // One continuous five-minute run. `day` remains the internal ramp value for minigame compatibility.
     schedule: [{ phase: 'play', duration: 300 }],
@@ -84,7 +85,7 @@
     initialObjectives() {
       return this.objectives.map((o) => ({
         id: o.id, name: o.name, kind: o.kind, place: o.place, requires: o.requires.slice(),
-        stagesTotal: o.stages.length, progress: 0, done: false, by: null, locked: o.requires.length > 0,
+        stagesTotal: o.stages.length, progress: 0, done: false, by: null, locked: o.requires.length > 0, finale: !!o.finale,
       }));
     },
   };

@@ -1,6 +1,6 @@
 # 5 Minutes at Fusion Reactor
 
-A browser game set in a leaking fusion reactor on the dark side of the Moon. You direct a four-person crew through six escape-ship objectives while defending the control room. Crew travel, work, support requests, cameras and gates all remain active during one 300-second run. The wall clock moves from **18:00** to **00:00** (1.2 clock minutes per game-second). The alert level rises from 1 to 2 at 100 seconds, and to 3 at 200 seconds.
+A browser game set in a leaking fusion reactor on the dark side of the Moon. You direct a four-person crew through five escape-ship objectives while defending the control room; the sixth, priming the ignition, you do yourself in the dark ship cockpit. Crew travel, work, support requests, cameras and gates all remain active during one 300-second run. The wall clock moves from **18:00** to **00:00** (1.2 clock minutes per game-second). The alert level rises from 1 to 2 at 100 seconds, and to 3 at 200 seconds.
 
 ## Run and controls
 
@@ -13,13 +13,15 @@ Double-click `index.html` to play over `file://`, or serve this folder with `pyt
 | `A`, `D` | Drop or raise the west or east gate, even during a minigame |
 | Arrows, Space, Enter, mouse | Minigame controls; see each puzzle's hints |
 
-URL options: `?speed=5` advances game time five times faster; `?god=1` prevents creature catches; `?crew=1..4` changes the starting crew count. All game logic uses game-time `tick`, so speed affects crew and threats together.
+URL options: `?speed=5` advances game time five times faster; `?god=1` prevents creature catches (and cockpit panes from breaking); `?finale=1` starts with the five crew objectives done so the cockpit can be tried at once; `?crew=1..4` changes the starting crew count. All game logic uses game-time `tick`, so speed affects crew and threats together.
 
 ## Play
 
-Select an idle crew member on the Escape Board, then an available objective. Each trip has travel, work and one or two obstacles. At an obstacle, the crew member asks for support. Click **HELP** and solve the matching minigame before its timer expires. The first time each minigame appears in a run, a tips window opens and **the whole run is paused** (the director sends no ticks, and the gate and camera keys are ignored) until the player presses Enter or Space. Other crew continue working and other requests keep losing patience while you solve it. Every crew member has **2 HP**. A failed or ignored request costs 1 HP and sends that crew member back to rest for **two clock hours** (100 game-seconds): they cannot be sent out until the board shows READY again, and the objective keeps its progress and can be resumed by anyone. A second failure kills. While they are out in the plant, crew sometimes radio in something unsettling (a sound, a door that is not on the map); these are only flavour. Every new intercom line makes a sound, flashes the new line and lights a NEW MESSAGE tag in the terminal title. Fuel Cell adds 25 power to the pool when it is finished; Purge coolant loop grants a battery (drain ×0.85). Prime the ignition requires Fuel Cell and Reroute hangar power.
+Select an idle crew member on the Escape Board, then an available objective. Each trip has travel, work and one or two obstacles. At an obstacle, the crew member asks for support. Click **HELP** and solve the matching minigame before its timer expires. The first time each minigame appears in a run, a tips window opens and **the whole run is paused** (the director sends no ticks, and the gate and camera keys are ignored) until the player presses Enter or Space. Other crew continue working and other requests keep losing patience while you solve it. Every crew member has **2 HP**. A failed or ignored request costs 1 HP and sends that crew member back to rest for **two clock hours** (100 game-seconds): they cannot be sent out until the board shows READY again, and the objective keeps its progress and can be resumed by anyone. A second failure kills. While they are out in the plant, crew sometimes radio in something unsettling (a sound, a door that is not on the map); these are only flavour. Every new intercom line makes a sound, flashes the new line and lights a NEW MESSAGE tag in the terminal title. Fuel Cell adds 25 power to the pool when it is finished; Purge coolant loop grants a battery (drain ×0.85). Prime the ignition is not a trip: once the other five are done the crew are aboard the ship, the board row turns amber, and clicking it starts the **cockpit finale**.
 
-**Win:** complete all six objectives and press LAUNCH at any time, or finish the checklist by 00:00. A win plays a pixel-art launch (countdown, liftoff from the Moon, the plant melting down behind the ship, the turn toward Earth) and then the credits; Enter, Space, Escape or SKIP jumps ahead. **Lose:** a creature enters, all crew die, or 00:00 arrives before the checklist is complete.
+**Cockpit finale** (`modules/cockpit/`): the run clock stops and the whole screen becomes the ship's cockpit. No cameras, no crew, no warnings. The power is out, and the only light is a flashlight that follows the mouse (arrows and Space also work). A control can only be used while the beam is on it. Set the five controls on the panel (BATT, PUMP, COOL, ARM, THR) in the order printed on the launch card (different each run; ARM has a guard cover to lift first, THR is a lever that needs two clicks), then hold the PRIME button in the light for 1.5 seconds. Touching a live control out of turn dumps every switch back and calls another creature; the rest of the panel is decoys. Creatures (walker, crawler, brute, stalker) walk up to the windscreen in the dark, press on the glass and pound it. Shine the beam on one for about half a second and it screams and leaves. Every blow adds permanent cracks; a pane at full damage breaks and the run ends (BREACH). Blows also make the beam flicker. The three panes have 1 damage each; a walker hits for 0.05, crawler 0.03, brute 0.12, stalker 0.06, and spawn gaps run from about 6 s down to 3.4 s with up to three at once after 35 s. Not human-playtested; a scripted player taking 4 to 6 s per control wins most runs.
+
+**Win:** complete the five crew objectives, board the ship and prime the ignition in the cockpit (the checklist must be finished by 00:00; the clock is frozen once you board). A win plays a pixel-art launch (countdown, liftoff from the Moon, the plant melting down behind the ship, the turn toward Earth) and then the credits; Enter, Space, Escape or SKIP jumps ahead. **Lose:** a creature enters, all crew die, 00:00 arrives before the checklist is complete, or a cockpit pane breaks.
 
 The first creature appears at about 28 seconds. Level 1 has only walkers and one threat at a time. Crawler and brute join at level 2; stalker joins at level 3. A second threat can overlap at level 3 only occasionally. Watch the feed, radiation sensor, gate lamps, camera tabs and KNOCKING banner. A closed gate must hold a threat long enough to make it leave.
 
@@ -53,15 +55,15 @@ Objective travel and work segments are in `core/config.js`. Their aggregate crew
 | Thruster Coupler | 2 | `mash`, difficulty 1 / 2 |
 | Purge coolant loop | 2 | `flow`: leaking tubes, pump each into the green band (hold 0.55 / 0.7 / 0.85 s), difficulty 1 / 2 |
 | Reroute hangar power | 1 | `blocks`, rows 1, garbage 2 |
-| Prime the ignition | 2 | `switches`, difficulty 2 / 3 |
+| Prime the ignition | finale | not a minigame: the cockpit (`modules/cockpit/`). `switches` is no longer used in a run; `dev/minigames.html` still loads it |
 
 ## Architecture and contract
 
-Classic scripts attach to `window.CF`. `core/bus.js` provides `CF.bus`, `CF.state` and `CF.register`. `core/config.js` stores the schedule, objectives and support tuning. `core/director.js` sends ticks and decides endings. `core/shell.js` mounts registered modules into `cameras`, `tasks`, `board`, `controls`, `fx`, `hud` and `ending` slots. `modules/ending/` is a registered module without a slot: when it is loaded it sets `CF.cinematic`, and the shell then leaves the win screen to it. `core/devkit.js` replaces the director on standalone dev pages. Each module owns its own UI; communication uses state or bus events.
+Classic scripts attach to `window.CF`. `core/bus.js` provides `CF.bus`, `CF.state` and `CF.register`. `core/config.js` stores the schedule, objectives and support tuning. `core/director.js` sends ticks and decides endings. `core/shell.js` mounts registered modules into `cameras`, `tasks`, `board`, `controls`, `fx`, `hud` and `ending` slots. `modules/cockpit/` and `modules/ending/` are registered modules without a slot (the cockpit sits over the control room and under the CRT layer; the ending over everything). When the ending is loaded it sets `CF.cinematic`, and the shell then leaves the win screen to it. `core/devkit.js` replaces the director on standalone dev pages. The atmosphere module draws a faint CRT look over the whole stage (scanlines, vignette, a slow roll bar and sparse TV snow that gets stronger with the alert level). The radiation trefoil in the top-left of the HUD marks the reactor and pulses faster, turning red, as the alert rises. Each module owns its own UI; communication uses state or bus events.
 
 | State key | Meaning | Writer |
 |---|---|---|
-| `phase` | `boot`, `intro`, `play`, `win`, `lose` | Core |
+| `phase` | `boot`, `intro`, `play`, `finale` (in the cockpit; the run clock is frozen), `win`, `lose` | Core |
 | `day` | Internal alert level 1–3, also passed as `opts.day` to minigames | Core |
 | `clock`, `timeLeft`, `phaseTimeLeft` | Wall-clock minutes and remaining game-seconds | Core |
 | `team` | Crew `{id,name,color,hp,status,at,timer}`; status `idle/travel/work/stuck/injured/dead`; for `injured`, `timer` is the game-seconds of rest left | Tasks |
@@ -76,6 +78,8 @@ Classic scripts attach to `window.CF`. `core/bus.js` provides `CF.bus`, `CF.stat
 | `phase:change` | `{phase,day,duration?,reason?}` | Enter play or an ending |
 | `tick` | `{dt,phase,day,t,phaseTimeLeft,clock}` | Advance all gameplay; `t` is elapsed run time |
 | `dispatch:request` | `{crew,objective}` | Board asks Tasks to start a trip |
+| `finale:request` | none | Board asks Core to enter the cockpit once the other objectives are done |
+| `finale:done`, `finale:failed` | none | Cockpit won (Tasks marks the last objective and asks for the launch) or a pane broke (Core loses with reason `glass`) |
 | `launch:request` | none | Board asks Core to win if checklist is done |
 | `team:dispatched`, `team:hurt`, `team:died` | Crew and objective IDs as applicable | Crew status notifications |
 | `objective:done` | `{id,kind}` | Checklist progress notification |
@@ -89,6 +93,6 @@ Classic scripts attach to `window.CF`. `core/bus.js` provides `CF.bus`, `CF.stat
 | `creature:leave` | `{kind,side}` | A creature gave up at a sealed gate |
 | `power:gain` | `{amount,by}` | Tasks asks Cameras to add power to the pool (Fuel Cell: +25) |
 | `game:pause` | `{paused}` | A modal tip opened or closed; `paused` state also set |
-| `sfx`, `fx:flash` | Sound name or CSS color | Sound and screen flash |
+| `sfx`, `fx:flash` | Sound name (or `{name,pan,vol}`) or CSS color | Sound and screen flash |
 
 Minigames register `CF.minigames[id] = { id, title, tips, start(el, done, opts) }`; `tips` is `{ goal, keys: [..], hint }` and is shown in the pause window the first time that minigame appears in a run. `start` returns `{ cancel() }`. Call `done(true)` on success. Tasks owns the time limit and falls back to the first registered minigame if a stage ID is unavailable. `opts` always includes `day` and `difficulty`. Minigames use arrows, Space, Enter and mouse; `1`, `2`, `A`, `D` are reserved globally.

@@ -22,6 +22,8 @@
 .bd-obj:disabled { cursor: default; }
 .bd-obj.is-avail { border-color: var(--teal); }
 .bd-obj.is-avail:hover { background: rgba(111, 183, 176, .1); }
+.bd-obj.is-finale { border-color: var(--amber); animation: blink 1.2s steps(2) infinite; }
+.bd-obj.is-finale .bd-oname { color: var(--amber); }
 .bd-obj.is-done { border-color: var(--ok); }
 .bd-obj.is-locked { opacity: .55; }
 .bd-kind { grid-row: 1 / 3; font-family: var(--font-display); font-size: 14px; letter-spacing: .1em; color: var(--amber-dim); border: 1px solid var(--line); text-align: center; padding: 1px 0; }
@@ -39,5 +41,5 @@
 .bd-launch.ready:hover { background: var(--ok); color: var(--bg); }
 
 @media (prefers-reduced-motion: reduce) {
-  .bd-member.is-stuck, .bd-launch.ready { animation: none; }
+  .bd-member.is-stuck, .bd-launch.ready, .bd-obj.is-finale { animation: none; }
 }

@@ -101,7 +101,7 @@
   /* ── the trip ───────────────────────────────────────────────────────── */
   function dispatch(e) {
     const t = tm(e.crew), o = ob(e.objective);
-    const ok = S.get('phase') === 'play' && t && o && t.status === 'idle' && !o.done && !o.by && !o.locked;
+    const ok = S.get('phase') === 'play' && t && o && t.status === 'idle' && !o.done && !o.by && !o.locked && !def(o.id).finale;
     if (!ok) { bus.emit('sfx', 'deny'); return; }
     t.status = 'travel'; t.at = o.id; t.timer = def(o.id).travel; o.by = t.id;
     say(t.id, pick(LINES.go) + ' (' + o.place + ')');
@@ -129,6 +129,17 @@
     bus.emit('sfx', 'chime');
     publish();
     bus.emit('objective:done', { id: o.id, kind: o.kind });
+    if (objs.every((x) => x.done || def(x.id).finale)) say('sys', 'The crew are aboard the ship. Board it and prime the ignition yourself.', false, 'ok');
+  }
+
+  /* The cockpit finale was won: the last objective is done and the launch follows. */
+  function finaleDone() {
+    const o = objs.find((x) => def(x.id).finale);
+    if (!o || o.done) return;
+    o.done = true; o.by = null; o.frac = 0;
+    publish();
+    bus.emit('objective:done', { id: o.id, kind: o.kind });
+    bus.emit('launch:request');
   }
 
   /* ── support requests ───────────────────────────────────────────────── */
@@ -316,6 +327,7 @@
       if (mode === 'working') endGame();
       mode = 'idle'; el.root.dataset.mode = 'idle';
       nextWhisper = 20; elapsed = 0; lastWarning = -100; seen = {}; bag = [];
+      if (cfg.skipToFinale) { objs.forEach((o) => { if (!def(o.id).finale) o.done = true; }); publish(); }
       say('sys', 'Crew and gates are live. Send a crew member, then watch both halls.', false, 'none');
     } else if (e.phase === 'win' || e.phase === 'lose') {
       endGame(); mode = 'idle'; el.root.dataset.mode = 'idle';
@@ -378,6 +390,7 @@
     publish();
 
     bus.on('dispatch:request', dispatch);
+    bus.on('finale:done', finaleDone);
     bus.on('intercom:say', (e) => say(e.who || 'sys', e.text, e.static));
     bus.on('tick', onTick);
     bus.on('phase:change', onPhase);
