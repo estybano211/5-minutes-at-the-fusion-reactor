@@ -1,4 +1,1 @@
-# urban-broccoli
-Repository for the code created by Esteban De Los Santos-Yepes, Marko Venherak, Minkjun Wang and Rahul Karthikeyan for Hacktoberfest 2026
-
-Anything that goes wrong is on Esteban's head. God save the King. 
+The game is effectively a fusion of Five Nights at Freddy's (FNAF) by Scott Cawthon and various mini-games. In effect, the backstory behind the game is that you are on a nuclear fusion power station on the dark side of the moon, unbeknownst to you, the fusion reactor is being used by your employers to contains various anomalous entities on the lunar surface. However, an asteroid strike compromises the station integrity, isolating you from the rest of the company, causing the entities to escape. You must now as the captain, guide your crew to repair the escape shuttle while fending off entities trying to attack you. The game is a point and click game (however it can be played using the keyboard) fused with mini-games, heavily inspired by FNAF and relies heavily on multi-tasking on the player's part. The art style is simple 2D pixel art.
