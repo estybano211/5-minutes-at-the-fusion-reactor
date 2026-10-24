@@ -25,13 +25,13 @@
   const initial = () => ({
     phase: 'boot',      // boot | intro | play | win | lose
     day: 0,             // ramp level 1..3; also passed to minigames as opts.day
-    team: [],           // crew records, written by the tasks module
+    team: [],           // crew records (status idle/travel/work/stuck/injured/dead), written by the tasks module
     objectives: [],     // escape checklist, written by the tasks module
     power: 100,         // continuous 0..100 pool
     battery: 0,         // extra batteries found (each cuts power drain by 15%)
     paused: false,      // true while a minigame tip is open: the director sends no ticks
-    clock: 943,         // wall clock in minutes since midnight: 943 = 15:43, 1500 = 01:00 next day
-    timeLeft: 480,      // game-seconds until the clock reaches its end (01:00)
+    clock: 1080,        // wall clock in minutes since midnight: 1080 = 18:00, 1440 = 00:00 (the meltdown)
+    timeLeft: 300,      // game-seconds until the clock reaches its end
     phaseTimeLeft: 0,
   });
 

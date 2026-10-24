@@ -3,29 +3,57 @@
   const CF = window.CF, S = CF.state, bus = CF.bus, cfg = CF.config;
   CF.minigames = CF.minigames || {};
 
-  const SLOW = 1.4;                                   // a hurt crew member walks and works this much slower
   const POWER_BONUS = 25;                             // power points a finished Fuel Cell adds to the pool
+  const REST = cfg.injuryMinutes / cfg.minutesPerSecond();   // game-seconds a hurt crew member rests (two wall-clock hours)
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const rand = (a, b) => a + Math.random() * (b - a);
   const LINES = {
     go: ['On my way.', 'Heading out.', 'Moving.'],
     thanks: ['Thanks. Moving on.', 'That did it.', 'Good. I am through.'],
-    hurt: ['I missed the support window. I am hurt, but still here.', 'That attempt failed. I am hurt; please try again.', 'I waited too long and got hurt. Help me through.'],
+    hurt: ['That attempt failed and I am hurt. I am coming back to rest.', 'I cannot go on. Pulling back to the control room.', 'I am hurt. Give me two hours, then send me out again.'],
+    missed: ['Nobody answered. I am hurt. Coming back.', 'I waited too long and got hurt. Retreating.'],
+    back: ['Patched up. I can go out again, but one more wound and I am done.', 'Rested. Send me if you must.', 'I am fine. Mostly.'],
     last: ['No, no, there is something in the vent...', 'It is right behind me. It is...', 'Tell them I tried to...'],
   };
-  const TIMED_LINES = [
-    { t: 115, text: 'Something crossed the service hall. I am keeping my head down.' },
-    { t: 275, text: 'I heard a knock from inside the wall. Nobody is working there.' },
-    { t: 405, text: 'The intercom picked up my voice before I spoke.' },
+  // Unsettling lines a crew member sends from the field. Any can come at any time; a few belong to one place.
+  const HORROR = [
+    'Did you hear that? Something just moved behind the wall.',
+    'The lights here flicker in a pattern. Like they are counting.',
+    'I swear someone said my name. Very quietly.',
+    'There are wet footprints on the floor. They go in, not out.',
+    'It smells like a hospital in here. Why does it smell like a hospital?',
+    'Something is breathing in the vent. Slowly. In time with me.',
+    'My radio says there are five of us in this corridor. I count one.',
+    'I just passed a handprint on the glass. It is still warm.',
+    'Please do not look at the cameras on my side. Please.',
+    'I keep hearing scratching. It stops when I stop.',
+    'There is a door here that is not on the map.',
+    'Something is tapping on the other side of this panel. Three times. Pause. Three times.',
+    'Somebody is standing right behind me. Nobody is there.',
+    'The intercom just whispered my name back to me.',
+    'If you hear a voice that sounds like me asking to come in, do not open the gate.',
+    'It is so quiet. Even the reactor stopped humming.',
+    'My shadow moved a little late.',
+    'Was that the vent, or did it laugh?',
+    'I heard a knock from inside the wall. Nobody is working there.',
+    'The intercom picked up my voice before I spoke.',
   ];
+  const HORROR_AT = {
+    'Navigation deck': ['The nav screen shows a dot moving toward us. It has no name.', 'Every console on this deck just turned to face me.'],
+    'Engine bay': ['Something is knocking inside the engine casing. From inside.', 'The pipes here are warm, like a body.'],
+    'Cargo hold': ['The crates are stacked differently than a minute ago.', 'One of the crates is breathing. I am not opening it.'],
+    'Reactor annex': ['The coolant is the temperature of skin. It should not be.', 'The glass on the reactor shows a face. It is not mine.'],
+    'Power junction': ['Every cable here hums one low note. Like a voice.', 'The breaker I just threw clicked back on by itself.'],
+    'Flight deck': ['The pilot seat is turned toward me. Something just got up from it.', 'Someone has written our names on the windshield. From the outside.'],
+  };
 
-  let el = {}, team = [], objs = [], reqs = [], cards = {}, log = [];
+  let el = {}, team = [], objs = [], reqs = [], cards = {}, log = [], bag = [], badgeTimer = 0;
   let seen = {}, tip = null, tipOpen = null;
-  let mode = 'idle', cur = null, game = null, workLeft = 0, workMax = 1, nextLine = 0, lastWarning = -100, elapsed = 0;
+  let mode = 'idle', cur = null, game = null, workLeft = 0, workMax = 1, nextWhisper = 20, lastWarning = -100, elapsed = 0;
 
   const tm = (id) => team.find((t) => t.id === id);
   const ob = (id) => objs.find((o) => o.id === id);
   const def = (id) => cfg.objectives.find((o) => o.id === id);
-  const slow = (t) => (t.hp < cfg.crewHp ? SLOW : 1);
   const rampIdx = () => Math.max(0, Math.min(2, S.get('day') - 1));
 
   /* ── state out ──────────────────────────────────────────────────────── */
@@ -39,7 +67,9 @@
   }
 
   /* ── intercom log ───────────────────────────────────────────────────── */
-  function say(who, text, staticFx) {
+  // Every new line makes a sound and lights up the terminal title, so it is noticed even while the player is busy.
+  // `snd` overrides the sound ('none' for housekeeping lines); radio whispers (`staticFx`) get their own.
+  function say(who, text, staticFx, snd) {
     const p = tm(who) || cfg.crew.find((c) => c.id === who) || { name: 'COMPANY', color: '#8f7646' };
     log.unshift({ name: p.name.toUpperCase(), color: p.color, text: text, staticFx: !!staticFx });
     log = log.slice(0, 4);
@@ -54,6 +84,18 @@
       row.appendChild(document.createTextNode(' ' + l.text));
       el.log.appendChild(row);
     });
+    notify(snd || (staticFx ? 'radio' : 'msg'), !!staticFx);
+  }
+
+  function notify(snd, staticFx) {
+    if (snd !== 'none') bus.emit('sfx', snd);
+    el.root.classList.remove('tk-ping'); void el.root.offsetWidth; el.root.classList.add('tk-ping');
+    if (!el.badge || snd === 'none') return;
+    el.badge.hidden = false;
+    el.badge.classList.toggle('tk-badge-radio', staticFx);
+    el.badge.classList.remove('go'); void el.badge.offsetWidth; el.badge.classList.add('go');
+    clearTimeout(badgeTimer);
+    badgeTimer = setTimeout(() => { el.badge.hidden = true; }, 3200);
   }
 
   /* ── the trip ───────────────────────────────────────────────────────── */
@@ -61,8 +103,7 @@
     const t = tm(e.crew), o = ob(e.objective);
     const ok = S.get('phase') === 'play' && t && o && t.status === 'idle' && !o.done && !o.by && !o.locked;
     if (!ok) { bus.emit('sfx', 'deny'); return; }
-    t.status = 'travel'; t.at = o.id; t.timer = def(o.id).travel * slow(t); o.by = t.id;
-    bus.emit('sfx', 'beep');
+    t.status = 'travel'; t.at = o.id; t.timer = def(o.id).travel; o.by = t.id;
     say(t.id, pick(LINES.go) + ' (' + o.place + ')');
     publish();
     bus.emit('team:dispatched', { crew: t.id, objective: o.id });
@@ -70,7 +111,7 @@
 
   function beginStep(t) {
     const o = ob(t.at);
-    if (o.step % 2 === 0) { t.status = 'work'; t.timer = def(o.id).work * slow(t); o.frac = 0; }
+    if (o.step % 2 === 0) { t.status = 'work'; t.timer = def(o.id).work; o.frac = 0; }
     else { t.status = 'stuck'; addRequest(t, o); }
   }
 
@@ -111,8 +152,7 @@
     cards[r.tid] = { card: card, bar: card.querySelector('.tk-req-bar i') };
     el.root.classList.add('has-reqs');
 
-    bus.emit('sfx', 'beep');
-    say(t.id, r.say);
+    say(t.id, r.say, false, 'beep');
   }
 
   function dropRequest(r) {
@@ -180,9 +220,8 @@
     endGame();
     if (ok) {
       dropRequest(r);
-      o.step++; o.frac = 0; t.status = 'work'; t.timer = def(o.id).work * slow(t);
-      say(t.id, pick(LINES.thanks));
-      bus.emit('sfx', 'ok');
+      o.step++; o.frac = 0; t.status = 'work'; t.timer = def(o.id).work;
+      say(t.id, pick(LINES.thanks), false, 'ok');
       bus.emit('support:done', { crew: t.id, objective: o.id });
     } else {
       bus.emit('support:failed', { crew: t.id, objective: o.id });
@@ -191,12 +230,16 @@
     publish();
   }
 
+  /* The first wound sends the crew member back to the control room for two wall-clock hours. The second one kills. */
   function hurt(t, r, reason) {
     t.hp -= 1;
     if (t.hp <= 0) { die(t); return; }
-    r.patience = r.max;
-    say(t.id, reason === 'missed' ? 'I waited too long for help. I am hurt; please answer.' : pick(LINES.hurt));
-    bus.emit('sfx', 'deny');
+    const o = t.at ? ob(t.at) : null;
+    if (o) { o.by = null; o.frac = 0; }            // the objective keeps its progress; the next trip resumes at the same obstacle
+    if (cur === r) endGame();
+    dropRequest(r);
+    t.status = 'injured'; t.at = null; t.timer = REST;
+    say(t.id, pick(reason === 'missed' ? LINES.missed : LINES.hurt), false, 'deny');
     bus.emit('fx:flash', '#6a1010');
     bus.emit('team:hurt', { id: t.id });
     publish();
@@ -219,19 +262,17 @@
   function onTick(e) {
     if (e.phase !== 'play') return;
     elapsed = e.t;
-    while (nextLine < TIMED_LINES.length && elapsed >= TIMED_LINES[nextLine].t) {
-      const alive = team.filter((t) => t.status !== 'dead');
-      if (alive.length) say(pick(alive).id, TIMED_LINES[nextLine].text, true);
-      nextLine++;
-      bus.emit('sfx', 'static');
-    }
+    if (elapsed >= nextWhisper) whisper();
 
     team.forEach((t) => {
       if (t.status === 'travel') {
         t.timer -= e.dt;
         if (t.timer <= 0) beginStep(t);
+      } else if (t.status === 'injured') {
+        t.timer -= e.dt;
+        if (t.timer <= 0) { t.status = 'idle'; t.timer = 0; say(t.id, pick(LINES.back), false, 'chime'); }
       } else if (t.status === 'work') {
-        const o = ob(t.at), full = def(o.id).work * slow(t);
+        const o = ob(t.at), full = def(o.id).work;
         t.timer -= e.dt;
         o.frac = Math.max(0, Math.min(1, 1 - t.timer / full));
         if (t.timer <= 0) {
@@ -258,12 +299,24 @@
     publish();
   }
 
+  /* A crew member who is out in the plant sends something they should not have heard. */
+  function whisper() {
+    const out = team.filter((t) => t.status === 'travel' || t.status === 'work');
+    if (!out.length) { nextWhisper = elapsed + 5; return; }      // nobody is out there to hear anything
+    const t = pick(out), here = t.at ? HORROR_AT[def(t.at).place] : null;
+    let text;
+    if (here && Math.random() < 0.4) text = pick(here);
+    else { if (!bag.length) bag = HORROR.slice().sort(() => Math.random() - 0.5); text = bag.pop(); }
+    say(t.id, text, true);
+    nextWhisper = elapsed + rand(15, 24) * [1, 0.85, 0.7][rampIdx()];
+  }
+
   function onPhase(e) {
     if (e.phase === 'play') {
       if (mode === 'working') endGame();
       mode = 'idle'; el.root.dataset.mode = 'idle';
-      nextLine = 0; elapsed = 0; lastWarning = -100; seen = {};
-      say('sys', 'Crew and shutters are live. Send a crew member, then watch both halls.');
+      nextWhisper = 20; elapsed = 0; lastWarning = -100; seen = {}; bag = [];
+      say('sys', 'Crew and gates are live. Send a crew member, then watch both halls.', false, 'none');
     } else if (e.phase === 'win' || e.phase === 'lose') {
       endGame(); mode = 'idle'; el.root.dataset.mode = 'idle';
       if (tipOpen) { tipOpen = null; tip.root.hidden = true; setPaused(false); }
@@ -274,7 +327,7 @@
     if (S.get('phase') !== 'play' || e.level < 2 || elapsed - lastWarning < 24) return;
     lastWarning = elapsed;
     const alive = team.filter((t) => t.status !== 'dead');
-    if (alive.length) say(pick(alive).id, 'I hear movement near the ' + (e.side === 'L' ? 'west' : 'east') + ' hall. Watch the shutter.', true);
+    if (alive.length) say(pick(alive).id, 'I hear movement near the ' + (e.side === 'L' ? 'west' : 'east') + ' hall. Watch the gate.', true);
   }
 
   /* ── UI ─────────────────────────────────────────────────────────────── */
@@ -308,6 +361,14 @@
       '<p class="tk-tip-goal"></p><ul class="tk-tip-keys"></ul><p class="tk-tip-hint"></p>' +
       '<button class="tk-btn tk-tip-go">START <kbd>ENTER</kbd> <kbd>SPACE</kbd></button></div>';
     stage.appendChild(tipRoot);
+    const title = root.closest('.screen') && root.closest('.screen').querySelector('.screen-title');
+    if (title) {
+      el.badge = document.createElement('span');
+      el.badge.className = 'tk-badge';
+      el.badge.hidden = true;
+      el.badge.textContent = '✉ NEW MESSAGE';
+      title.appendChild(el.badge);
+    }
     tip = { root: tipRoot, title: tipRoot.querySelector('.tk-tip-title'), goal: tipRoot.querySelector('.tk-tip-goal'),
       list: tipRoot.querySelector('.tk-tip-keys'), hint: tipRoot.querySelector('.tk-tip-hint') };
     tipRoot.querySelector('.tk-tip-go').addEventListener('click', closeTip);
@@ -332,7 +393,7 @@
       if (e.code === 'Space') e.preventDefault();
       if (['1', '2', 'a', 'd'].includes(e.key.toLowerCase())) e.stopImmediatePropagation();
     }, true);
-    say('sys', 'Control room online. Crew standing by.');
+    say('sys', 'Control room online. Crew standing by.', false, 'none');
   }
 
   CF.register({ id: 'tasks', slots: ['tasks'], mount: mount });

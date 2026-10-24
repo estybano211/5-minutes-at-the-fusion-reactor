@@ -23,7 +23,7 @@
       const count = [0, 2, 3, 3][level];
       const leak = [0, 7, 6, 9][level] * (1 + (day - 1) * .04);        // percent per second
       const band = [null, [38, 74], [42, 74], [48, 72]][level];
-      const holdNeed = [0, .8, 1, 1.2][level];
+      const holdNeed = [0, .55, .7, .85][level];                 // seconds all tubes must stay green (70% of the earlier .8 / 1 / 1.2)
       const PUMP = 62;
       el.innerHTML = '<div class="fl"><div class="fl-instruction">← → pick a tube · hold Space or the mouse to pump · all tubes in the green</div>' +
         '<div class="fl-tubes">' + Array.from({ length: count }, (_, i) =>

@@ -9,7 +9,7 @@
       'A voice on the radio, very close to your ear:',
       '“Thank you for taking me with you.”',
     ],
-    caught: ['Nobody opens the shutters after that.', 'The clock keeps running. Someone will see the light from Earth.'],
+    caught: ['Nobody opens the gates after that.', 'The clock keeps running. Someone will see the light from Earth.'],
     late: ['The reactor does what it was always going to do.', 'The Company will be informed of your absence.'],
     alone: ['The control room is very quiet.', 'The reactor does not mind.'],
   };

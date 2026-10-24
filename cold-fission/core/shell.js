@@ -17,12 +17,13 @@
     'The plant is already leaking. At ' + endClock + ' it melts down completely. It is ' + cfg.fmtClock(cfg.clock.start) + ' now.',
     'The escape ship needs ' + cfg.objectives.length + ' things done before it can fly. Your crew can do them. You cannot leave the control room.',
     'Send them out and guide them through each obstacle. Watch both halls while you help.',
+    'A crew member who gets hurt must rest for two hours. A second wound is fatal.',
     ['The payroll system is still running.', 'dim'],
   ];
   const aliveCrew = () => { const t = S.get('team'); return t.length ? t.filter((x) => x.status !== 'dead').length : cfg.crew.length; };
   const END = {
     launched: { title: 'SHIP LAUNCHED', text: () => 'The ship clears the Moon with ' + aliveCrew() + ' of ' + cfg.crew.length + ' crew aboard.' },
-    caught:   { title: 'OVERRUN',       text: () => 'A shutter stayed open one second too long.' },
+    caught:   { title: 'OVERRUN',       text: () => 'A gate stayed open one second too long.' },
     late:     { title: 'MELTDOWN',      text: () => 'The clock reached ' + endClock + '. The checklist was not finished.' },
     alone:    { title: 'ABANDONED',     text: () => 'Nobody is left to send. The ship will never fly.' },
   };
@@ -48,10 +49,10 @@
         <div id="fx" data-slot="fx"></div>
         <div id="overlay" data-mode="none">
           <div class="ov-panel" id="ov-start">
-            <h1 class="ov-title ov-start-title">8 MINUTES AT<br>FUSION REACTOR</h1>
+            <h1 class="ov-title ov-start-title">5 MINUTES AT<br>FUSION REACTOR</h1>
             <p class="ov-sub">Control room, Halcyon Fusion Reactor, dark side of the Moon.</p>
             <button class="ov-btn" id="btn-start">BEGIN</button>
-            <p class="ov-keys">Click the screens · <kbd>1</kbd><kbd>2</kbd> cameras · <kbd>A</kbd><kbd>D</kbd> shutters</p>
+            <p class="ov-keys">Click the screens · <kbd>1</kbd><kbd>2</kbd> cameras · <kbd>A</kbd><kbd>D</kbd> gates</p>
           </div>
           <div class="ov-panel" id="ov-intro">
             ${INTRO.map((l, i) => {
@@ -84,7 +85,7 @@
     const $ = (id) => document.getElementById(id);
     const paint = {
       clock: (v) => { $('hud-timer').textContent = cfg.fmtClock(v); },
-      timeLeft: (v) => { $('hud-timer').classList.toggle('low', v <= 60); },
+      timeLeft: (v) => { $('hud-timer').classList.toggle('low', v <= 45); },
       power: (v) => {
         const p = Math.max(0, Math.min(100, v));
         $('hud-power').firstElementChild.style.width = p + '%';
@@ -113,6 +114,7 @@
       $('hud-phase').textContent = (LABEL[phase] || (() => phase))(day);
 
       if (phase === 'intro') overlay.dataset.mode = 'intro';
+      else if (phase === 'win' && CF.cinematic) overlay.dataset.mode = 'none';   // the ending module plays the launch
       else if (phase === 'win' || phase === 'lose') {
         const e = END[reason] || { title: phase === 'win' ? 'SHIP LAUNCHED' : 'MELTDOWN', text: () => '' };
         $('ov-title').textContent = e.title;

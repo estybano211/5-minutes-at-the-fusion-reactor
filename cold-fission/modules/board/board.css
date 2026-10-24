@@ -8,6 +8,8 @@
 .bd-member:not(:disabled):hover { border-color: var(--amber-dim); }
 .bd-member.is-sel { border-color: var(--teal); color: var(--teal); }
 .bd-member.is-stuck { border-color: var(--danger); color: var(--danger); animation: blink 1s steps(2) infinite; }
+.bd-member.is-hurt { border-color: var(--danger); color: var(--amber-dim); }
+.bd-member.is-hurt .bd-st { color: var(--danger); }
 .bd-member.is-dead { opacity: .4; text-decoration: line-through; }
 .bd-sw { width: 12px; height: 12px; }
 .bd-hp { display: flex; gap: 3px; }

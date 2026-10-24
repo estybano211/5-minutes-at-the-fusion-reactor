@@ -22,7 +22,7 @@
       opts = opts || {};
       const level = Math.max(1, Math.min(3, opts.difficulty || 1));
       const day = Math.max(1, Math.min(3, opts.day || 1));
-      const needed = [0, 5, 7, 9][level];
+      const needed = [0, 4, 5, 6][level];                       // blocks to bounce (70% of the earlier 5 / 7 / 9)
       const flight = [0, 1.15, .95, .8][level] * (1 - (day - 1) * .025);   // seconds from the edge to the shield
       const pause = [0, .45, .35, .3][level];
       el.innerHTML = '<div class="sh"><div class="sh-instruction">Arrows face the shield · Space turns it · bounce every ball</div><div class="sh-meter"><i></i></div><canvas class="sh-arena" width="320" height="176"></canvas><div class="sh-pad"><button data-dir="0">↑</button><button data-dir="3">←</button><button data-dir="1">→</button><button data-dir="2">↓</button></div></div>';

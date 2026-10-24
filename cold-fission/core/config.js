@@ -56,23 +56,26 @@
     speed: Math.max(0.1, Number(q.get('speed')) || 1),
     god: q.get('god') === '1',
 
-    // One continuous run. `day` remains the internal ramp value for minigame compatibility.
-    schedule: [{ phase: 'play', duration: 480 }],
-    rampAt: [160, 320],
+    // One continuous five-minute run. `day` remains the internal ramp value for minigame compatibility.
+    schedule: [{ phase: 'play', duration: 300 }],
+    rampAt: [100, 200],
 
     // The wall clock runs from `start` to `end` across the whole schedule (minutes since midnight).
-    // The plant melts down at `end` (01:00 the next day), so the game ends then at the latest.
-    clock: { start: 15 * 60 + 43, end: 25 * 60 },
+    // The plant melts down at `end` (midnight), so the game ends then at the latest.
+    clock: { start: 18 * 60, end: 24 * 60 },
     fmtClock(min) {
       const m = ((Math.round(min) % 1440) + 1440) % 1440;
       return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
     },
+    // Wall-clock minutes that pass per game-second (1.2 with the numbers above).
+    minutesPerSecond() { return (this.clock.end - this.clock.start) / this.schedule[0].duration; },
 
     crew: CREW.slice(0, Math.max(1, Math.min(CREW.length, Number(q.get('crew')) || CREW.length))),
-    crewHp: 3,                          // each failed or missed support request costs 1; at 0 the crew member dies
+    crewHp: 2,                          // a failed or missed support request costs 1 and sends the crew member to rest; at 0 they die
+    injuryMinutes: 120,                 // wall-clock minutes (two hours) a hurt crew member cannot be sent out
     objectives: OBJECTIVES,
     supportPatience: [45, 40, 35],      // seconds a stuck crew member can wait for help, per ramp level
-    supportLimit: [25, 22, 20],         // seconds the player gets to solve the minigame, per ramp level
+    supportLimit: [17.5, 15.4, 14],     // seconds the player gets to solve the minigame, per ramp level (70% of the earlier 25 / 22 / 20)
 
     // Fresh runtime records. Only the tasks module (the "engine") changes them after this.
     initialCrew() {

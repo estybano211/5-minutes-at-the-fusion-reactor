@@ -1,0 +1,51 @@
+/* The winning ending (launch film and credits). Every class here starts with en-. */
+.en { position: absolute; inset: 0; z-index: 40; background: #05090a; opacity: 0; transition: opacity .7s; overflow: hidden; }
+.en[hidden] { display: none; }
+.en.on { opacity: 1; }
+.en-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+/* The same CRT lines and dark corners as the control room, so the film belongs to the game. */
+.en-shade { position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, .18) 3px), radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, .6) 100%); }
+.en-credits-on .en-canvas { filter: brightness(.55); }
+
+.en-info { position: absolute; left: 32px; top: 26px; font-family: var(--font-display); font-size: 26px; letter-spacing: .14em; color: var(--teal); text-shadow: 0 0 6px rgba(111, 183, 176, .6); opacity: 0; }
+.en-info.go { animation: en-note 4.5s ease-out forwards; }
+.en-cap { position: absolute; left: 0; right: 0; top: 118px; text-align: center; font-family: var(--font-display); font-size: 120px; letter-spacing: .18em; color: var(--amber); text-shadow: 0 0 14px rgba(232, 180, 90, .6); opacity: 0; }
+.en-cap.go { animation: en-count 1s ease-out forwards; }
+@keyframes en-note { 0% { opacity: 0; transform: translateY(4px); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes en-count { 0% { opacity: 0; transform: scale(1.25); } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: .55; } }
+
+.en-credits { position: absolute; inset: 0; overflow: hidden; }
+.en-credits[hidden] { display: none; }
+.en-roll { position: absolute; left: 50%; top: 100%; width: 800px; margin-left: -400px; text-align: center; font-family: var(--font-display); color: var(--amber); font-size: 30px; line-height: 1.3; letter-spacing: .08em; }
+.en-roll.go { animation: en-roll 60s linear forwards; }
+@keyframes en-roll { to { transform: translateY(calc(-100% - 720px)); } }
+.en-roll h1 { margin: 0 0 8px; font-weight: 400; font-size: 84px; line-height: .95; letter-spacing: .1em; color: var(--amber); text-shadow: 0 0 12px rgba(232, 180, 90, .45); }
+.en-roll h2 { margin: 70px 0 14px; font-weight: 400; font-size: 26px; letter-spacing: .24em; color: var(--teal); }
+.en-roll p { margin: 4px 0; }
+.en-roll .en-dim { color: var(--amber-dim); font-size: 24px; }
+.en-roll .en-voice { margin-top: 10px; font-size: 40px; color: var(--teal); text-shadow: 0 0 10px rgba(111, 183, 176, .5); }
+.en-roll .en-crew { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.en-roll .en-crew i { width: 14px; height: 14px; }
+.en-roll .en-crew span { width: 190px; text-align: left; font-size: 22px; color: var(--ok); }
+.en-roll .en-crew.en-lost { color: var(--amber-dim); }
+.en-roll .en-crew.en-lost span { color: var(--danger); }
+.en-credits.en-static { overflow-y: auto; }
+.en-credits.en-static .en-roll { position: static; margin: 0 auto; padding: 60px 0 160px; }
+
+.en-end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; animation: rise 1.4s ease both; }
+.en-end[hidden] { display: none; }
+.en-end h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 120px; letter-spacing: .3em; color: var(--amber); text-shadow: 0 0 14px rgba(232, 180, 90, .5); }
+.en-end.en-corner { inset: auto 24px 24px auto; flex-direction: row; background: rgba(5, 9, 10, .8); padding: 8px 14px; }
+.en-end.en-corner h1 { display: none; }
+.en-btn { padding: 6px 30px; background: transparent; border: 2px solid var(--amber); color: var(--amber); font-family: var(--font-display); font-size: 30px; letter-spacing: .14em; }
+.en-btn:hover { background: var(--amber); color: var(--bg); }
+.en-skip { position: absolute; right: 24px; bottom: 20px; padding: 0 12px; background: transparent; border: 1px solid var(--line); font-family: var(--font-display); font-size: 20px; letter-spacing: .14em; color: var(--amber-dim); }
+.en-skip:hover { color: var(--amber); border-color: var(--amber-dim); }
+.en-skip[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .en { transition: none; }
+  .en-info.go, .en-cap.go, .en-end { animation: none; }
+  .en-info.go, .en-cap.go { opacity: 1; }
+}

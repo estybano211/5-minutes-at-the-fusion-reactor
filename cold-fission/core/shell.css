@@ -1,6 +1,6 @@
 /* Core shell.
    Layout concept: a fixed 1280x720 control-room stage, scaled to fit the window.
-   Top: HUD. Middle: three CRT screens (cameras / support terminal / escape board). Bottom: shutter controls. */
+   Top: HUD. Middle: three CRT screens (cameras / support terminal / escape board). Bottom: gate controls. */
 :root {
   --bg: #0b0d0e;
   --panel: #12171a;

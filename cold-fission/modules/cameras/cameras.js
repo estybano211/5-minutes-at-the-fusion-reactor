@@ -1,11 +1,10 @@
-/* Two hall feeds, four silhouette threats, shutters and the continuous power pool. */
+/* Two hall feeds, four silhouette threats, the two portcullis gates and the continuous power pool. */
 (function () {
   const CF = window.CF, S = CF.state, bus = CF.bus;
   const W = 220, H = 130;
-  const DOORS = {
-    L: { name: 'WEST', drain: 3.2, seal: 0, open: 0.55, latch: 0.7, hint: 'HEAVY · SEALS AT ONCE' },
-    R: { name: 'EAST', drain: 1.8, seal: 0.8, open: 0.45, latch: 0, hint: 'LIGHT · 0.8s TO SEAL' },
-  };
+  // Both gates behave the same: 0.5 s to come down (it only holds once it is all the way down), 0.45 s to rise.
+  const GATE = { drain: 2.5, down: 0.5, up: 0.45, hint: 'DROPS IN 0.5s · 2.5 POWER/s' };
+  const DOORS = { L: { name: 'WEST' }, R: { name: 'EAST' } };
   const POWER = { base: 0.18, recharge: 0.32, blackout: 8, restart: 20, brutePound: 0.9 };
   const KINDS = {
     walker:  { name: 'WALKER', move: [10, 13], grace: 5.4, hold: 2.5, side: null, signal: 'MOTION' },
@@ -15,15 +14,16 @@
   };
   const CAMS = [{ label: 'CAM 1 · WEST HALL', short: 'WEST HALL', side: 'L' },
                 { label: 'CAM 2 · EAST HALL', short: 'EAST HALL', side: 'R' }];
+  const FIRST_SPAWN = 28;                                   // seconds into the run
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   let root, ctl, g, ui = {};
   let cam = 0, active = false, blackout = 0, drawAt = 0, switchFx = 0;
-  let doors = { L: { closed: false, progress: 0, age: 0 }, R: { closed: false, progress: 0, age: 0 } };
-  let monsters = [], nextSpawn = 45, overlapAt = Infinity, runTime = 0, drain = 0, restartExtra = 0, paintKey = '', threatKey = '';
+  let doors = { L: { closed: false, progress: 0 }, R: { closed: false, progress: 0 } };
+  let monsters = [], nextSpawn = FIRST_SPAWN, overlapAt = Infinity, runTime = 0, drain = 0, restartExtra = 0, paintKey = '', threatKey = '';
 
-  const sealed = (side) => !blackout && doors[side].closed && (side === 'L' || doors[side].progress >= 1);
+  const sealed = (side) => !blackout && doors[side].closed && doors[side].progress >= 1;
   const nearby = (side) => monsters.filter((m) => m.side === side).sort((a, b) => b.stage - a.stage)[0];
   const knocking = (side) => monsters.some((m) => m.side === side && m.stage === 3 && !sealed(side));
   const level = () => Math.max(0, ...monsters.map((m) => m.stage));
@@ -39,8 +39,8 @@
   }
 
   function reset() {
-    active = true; blackout = 0; monsters = []; nextSpawn = 45; overlapAt = Infinity; runTime = 0; drain = 0; restartExtra = 0;
-    doors = { L: { closed: false, progress: 0, age: 0 }, R: { closed: false, progress: 0, age: 0 } };
+    active = true; blackout = 0; monsters = []; nextSpawn = FIRST_SPAWN; overlapAt = Infinity; runTime = 0; drain = 0; restartExtra = 0;
+    doors = { L: { closed: false, progress: 0 }, R: { closed: false, progress: 0 } };
     S.set('power', 100);
     threat(); refresh();
   }
@@ -59,11 +59,10 @@
 
   function toggle(side) {
     if (!active || blackout || S.get('paused')) return;
-    const d = doors[side], spec = DOORS[side];
-    if (d.closed && d.age < spec.latch) { toast(spec.name + ' SHUTTER LATCHED'); bus.emit('sfx', 'deny'); return; }
-    d.closed = !d.closed; d.age = 0;
-    bus.emit('sfx', 'shutter');
-    toast(spec.name + ' SHUTTER ' + (d.closed ? (side === 'L' ? 'SEALED' : 'CLOSING') : 'OPENING'));
+    const d = doors[side];
+    d.closed = !d.closed;
+    bus.emit('sfx', d.closed ? 'gatedown' : 'gateup');
+    toast(DOORS[side].name + ' GATE ' + (d.closed ? 'CLOSING' : 'OPENING'));
     refresh();
   }
 
@@ -84,8 +83,8 @@
     m.timer = moveTime(m, S.get('day'));
     stepEvent(m);
     if (!extra) {
-      nextSpawn = t + (S.get('day') === 1 ? rand(55, 70) : S.get('day') === 2 ? rand(43, 55) : rand(40, 52));
-      overlapAt = S.get('day') === 3 && Math.random() < 0.2 ? t + rand(12, 16) : Infinity;
+      nextSpawn = t + (S.get('day') === 1 ? rand(36, 46) : S.get('day') === 2 ? rand(28, 36) : rand(26, 34));
+      overlapAt = S.get('day') === 3 && Math.random() < 0.2 ? t + rand(9, 12) : Infinity;
     }
     threat(); refresh();
   }
@@ -114,7 +113,7 @@
     blackout = POWER.blackout; drain = 0;
     ['L', 'R'].forEach((s) => { doors[s].closed = false; doors[s].progress = 0; });
     bus.emit('sfx', 'powerdown'); bus.emit('creature:blackout');
-    toast('POWER FAILURE · SHUTTERS OPEN'); refresh();
+    toast('POWER FAILURE · GATES OPEN'); refresh();
   }
 
   function onTick(e) {
@@ -126,11 +125,10 @@
       if (!blackout) { S.set('power', Math.min(100, POWER.restart + restartExtra)); restartExtra = 0; toast('POWER RESTORED'); bus.emit('sfx', 'beep'); refresh(); }
     } else {
       ['L', 'R'].forEach((s) => {
-        const d = doors[s], p = DOORS[s];
-        d.age += dt;
-        d.progress = clamp(d.progress + (d.closed ? dt / Math.max(0.3, p.seal) : -dt / p.open), 0, 1);
+        const d = doors[s];
+        d.progress = clamp(d.progress + (d.closed ? dt / GATE.down : -dt / GATE.up), 0, 1);
       });
-      let d = POWER.base + (doors.L.closed ? DOORS.L.drain : 0) + (doors.R.closed ? DOORS.R.drain : 0);
+      let d = POWER.base + (doors.L.closed ? GATE.drain : 0) + (doors.R.closed ? GATE.drain : 0);
       d += monsters.filter((m) => m.kind === 'brute' && m.stage === 3 && sealed(m.side)).length * POWER.brutePound;
       d *= Math.pow(0.85, S.get('battery'));
       if (!doors.L.closed && !doors.R.closed) d -= POWER.recharge;
@@ -142,7 +140,7 @@
 
     if (e.t >= nextSpawn) {
       if (monsters.length === 0) spawn(pickKind(day), e.t);
-      else nextSpawn = e.t + (day === 3 ? 18 : 12);
+      else nextSpawn = e.t + (day === 3 ? 12 : 8);
     }
     if (e.t >= overlapAt) {
       overlapAt = Infinity;
@@ -251,7 +249,7 @@
   const SIZE = { walker: 1, crawler: 1.15, brute: .92, stalker: .8 };
 
   function creature(m, t) {
-    // Stage 1 stands at the far end of the hall, stage 2 near the shutter, stage 3 fills the doorway.
+    // Stage 1 stands at the far end of the hall, stage 2 near the gate, stage 3 fills the doorway.
     const spot = m.stage === 1 ? { y: 61, s: .3, wob: 5 } : m.stage === 2 ? { y: 117, s: .86, wob: 14 } : { y: 142, s: 1.28, wob: 3 };
     const sc = spot.s * SIZE[m.kind] * (m.stage === 3 ? 1 + Math.sin(t * 4 + m.seed) * .02 : 1);
     let x = 110 + Math.sin(t * .55 + m.seed) * spot.wob;
@@ -283,7 +281,7 @@
     g.restore();
   }
 
-  /* A creature behind a closed shutter shakes it and leaves marks. Returns the offset to draw the door with. */
+  /* A creature behind a closed gate shakes it and leaves marks. Returns the offset to draw the gate with. */
   function pound(side, t) {
     const m = monsters.find((x) => x.side === side && x.stage === 3 && sealed(side));
     if (!m) return { x: 0, y: 0, m: null };
@@ -307,41 +305,101 @@
     g.restore();
   }
 
-  function drawHall(side, t) {
-    g.fillStyle = '#08100f'; g.fillRect(0, 0, W, H);
-    g.fillStyle = '#0f1d1b'; poly([[0, H], [W, H], [130, 62], [90, 62]]);
-    g.fillStyle = '#0c1615'; poly([[0, 0], [90, 40], [90, 62], [0, H]]); poly([[W, 0], [130, 40], [130, 62], [W, H]]);
-    g.fillStyle = '#1a2f2c'; g.fillRect(90, 40, 40, 22);
-    g.strokeStyle = '#27403c'; g.lineWidth = 1;
-    line(0, 0, 90, 40); line(W, 0, 130, 40); line(0, H, 90, 62); line(W, H, 130, 62);
-    const close = monsters.filter((m) => m.side === side), flick = close.some((m) => m.kind === 'stalker' || (m.stage >= 2 && Math.random() < (m.stage === 3 ? .3 : .12))) && Math.random() < .5;
-    [[4, 30], [14, 20], [24, 12]].forEach((l) => {
-      g.fillStyle = flick ? '#102421' : '#3d7a70'; g.fillRect(110 - l[1] / 2, l[0], l[1], 3);
+  /* The two halls share one perspective (the same floor, walls and vanishing end) so the creatures stand in the same
+     places, but they are furnished differently: the west hall is a clean ribbed spine with pipes and a hazard line,
+     the east one is a dark, wet service tunnel with hanging cables, a side alcove and a dead lamp. */
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const wallX = (sd, z) => (sd < 0 ? 90 * z : W - 90 * z);          // z: 0 at the camera, 1 at the far end
+  const wallTop = (z) => 40 * z;
+  const wallBot = (z) => H - 68 * z;
+  const DEPTHS = [.12, .26, .42, .58, .72, .85, .94];
+  const PAL = {
+    L: { bg: '#08100f', floor: '#0f1d1b', wall: '#0c1615', end: '#1a2f2c', edge: '#27403c', rib: '#1a2f2c', lamp: '#3d7a70', dead: '#102421' },
+    R: { bg: '#070e11', floor: '#0b171a', wall: '#091215', end: '#030707', edge: '#1f3438', rib: '#12232a', lamp: '#356a73', dead: '#0e1b1d' },
+  };
+
+  function furnishWest(t) {
+    g.lineWidth = 1; g.strokeStyle = PAL.L.rib;
+    DEPTHS.forEach((z) => [-1, 1].forEach((sd) => line(wallX(sd, z), wallTop(z), wallX(sd, z), wallBot(z))));
+    g.strokeStyle = '#13211f';                                         // floor grating
+    DEPTHS.forEach((z) => line(wallX(-1, z), wallBot(z), wallX(1, z), wallBot(z)));
+    [[.2, 3, '#22403b'], [.28, 2, '#1c3430']].forEach((p) => { g.strokeStyle = p[2]; g.lineWidth = p[1]; line(0, p[0] * H, 90, 40 + p[0] * 22); });
+    g.strokeStyle = '#16282a'; g.lineWidth = 1; line(W, .18 * H, 130, 40 + .18 * 22);
+    g.fillStyle = '#6a5a28';                                           // dashed hazard line down the middle
+    [.1, .22, .36, .5, .64, .76, .86].forEach((z) => { const hw = 6 * (1 - z) + 1; g.fillRect(110 - hw / 2, wallBot(z) - 2 * (1 - z) - 1, hw, 2 * (1 - z) + 1); });
+    g.fillStyle = '#0f1b1a'; g.fillRect(109, 40, 2, 22);               // bulkhead seam and its lamp
+    g.fillStyle = '#a07e2a'; g.fillRect(100, 44, 3, 2);
+  }
+
+  function furnishEast(t) {
+    g.fillStyle = 'rgba(229,72,77,' + (.1 + .05 * Math.sin(t * 3)) + ')'; g.fillRect(90, 40, 40, 22);   // the far end is an open dark passage
+    const z1 = .34, z2 = .52;                                           // a side alcove cut into the right wall
+    g.fillStyle = '#020505';
+    poly([[wallX(1, z1), lerp(wallTop(z1), wallBot(z1), .22)], [wallX(1, z2), lerp(wallTop(z2), wallBot(z2), .22)], [wallX(1, z2), wallBot(z2)], [wallX(1, z1), wallBot(z1)]]);
+    g.strokeStyle = PAL.R.rib; g.lineWidth = 1;
+    [.2, .5, .8].forEach((z) => line(wallX(-1, z), wallTop(z), wallX(-1, z), wallBot(z)));
+    g.strokeStyle = '#101a19'; g.lineWidth = 1.6;                      // cables swaying from the ceiling
+    [[38, 26], [150, 38], [176, 20]].forEach((c) => {
+      const sw = Math.sin(t * .8 + c[0]) * 3;
+      g.beginPath(); g.moveTo(c[0], 0); g.quadraticCurveTo(c[0] + sw, c[1] * .6, c[0] + sw * 1.5, c[1]); g.stroke();
+      if (Math.random() < .015) { g.fillStyle = '#9fe8df'; g.fillRect(c[0] + sw * 1.5 - 1, c[1], 2, 2); }
     });
-    monsters.filter((m) => m.side === side).forEach((m) => {
+    g.fillStyle = 'rgba(111,183,176,.08)'; g.beginPath(); g.ellipse(98, 112, 22, 3.2, 0, 0, TAU); g.fill();   // a puddle with a slow ripple
+    g.strokeStyle = 'rgba(111,183,176,.16)'; g.lineWidth = 1; const rip = (t * 6) % 12;
+    g.beginPath(); g.ellipse(98, 112, 2 + rip, .4 + rip * .12, 0, 0, TAU); g.stroke();
+    g.fillStyle = '#0d1b1d'; g.fillRect(104, 92, 12, 3); g.fillRect(104, 99, 12, 3);   // drain grate on the floor
+    if ((t * 1.1 | 0) % 2) { g.fillStyle = '#e5484d'; g.fillRect(25, 35, 3, 3); }       // emergency lamp on the left wall
+  }
+
+  function drawHall(side, t) {
+    const c = PAL[side];
+    g.fillStyle = c.bg; g.fillRect(0, 0, W, H);
+    g.fillStyle = c.floor; poly([[0, H], [W, H], [130, 62], [90, 62]]);
+    g.fillStyle = c.wall; poly([[0, 0], [90, 40], [90, 62], [0, H]]); poly([[W, 0], [130, 40], [130, 62], [W, H]]);
+    g.fillStyle = c.end; g.fillRect(90, 40, 40, 22);
+    g.strokeStyle = c.edge; g.lineWidth = 1;
+    line(0, 0, 90, 40); line(W, 0, 130, 40); line(0, H, 90, 62); line(W, H, 130, 62);
+    (side === 'L' ? furnishWest : furnishEast)(t);
+    const close = monsters.filter((m) => m.side === side), flick = close.some((m) => m.kind === 'stalker' || (m.stage >= 2 && Math.random() < (m.stage === 3 ? .3 : .12))) && Math.random() < .5;
+    [[4, 30], [14, 20], [24, 12]].forEach((l, i) => {
+      const dead = side === 'R' && i === 1 && Math.random() > .05;      // the middle lamp in the east tunnel is broken
+      g.fillStyle = flick || dead ? c.dead : c.lamp; g.fillRect(110 - l[1] / 2, l[0], l[1], 3);
+    });
+    close.forEach((m) => {
       creature(m, t);
       if (m.stage === 3 && m.kind !== 'stalker') { g.fillStyle = 'rgba(111,183,176,.35)'; for (let i = 0; i < 3; i++) g.fillRect(0, Math.random() * H | 0, W, 1); }
     });
     if (side === 'R') { g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(0, 0, W, H); noise(80); }
   }
 
-  function drawDoor(side, t) {
+  /* A portcullis: the housing in the ceiling is always there, and the grate drops down over the whole picture.
+     The bars are thin, so the creature stays visible in the gaps. */
+  function drawGate(side, t) {
     const p = doors[side].progress, ease = p * p * (3 - 2 * p), moving = p > 0 && p < 1;
-    const x1 = 56, x2 = 164, jamb = 6, top = 26;
-    g.fillStyle = '#1b2a28';
-    g.fillRect(x1, 16, x2 - x1, top - 16); g.fillRect(x1, 16, jamb, H - 16); g.fillRect(x2 - jamb, 16, jamb, H - 16);
-    for (let y = top; y < H; y += 8) { g.fillStyle = (y / 8) % 2 ? '#a07e2a' : '#161c1b'; g.fillRect(x1, y, jamb, 4); g.fillRect(x2 - jamb, y, jamb, 4); }
-    const depth = Math.round((H - top) * ease);
-    for (let y = top; y < top + depth; y += 6) {
-      g.fillStyle = '#2d4541'; g.fillRect(x1 + jamb, y, x2 - x1 - 2 * jamb, Math.min(5, top + depth - y));
-      g.fillStyle = '#4a6b65'; g.fillRect(x1 + jamb, y, x2 - x1 - 2 * jamb, 1);
+    const house = 9, lead = Math.round(house + (H - house) * ease);
+    if (lead > house) {
+      for (let x = 5; x < W; x += 16) {
+        g.fillStyle = '#2f4a45'; g.fillRect(x, house, 4, lead - house);
+        g.fillStyle = '#5b8279'; g.fillRect(x, house, 1, lead - house);
+        g.fillStyle = '#16211f'; g.fillRect(x + 3, house, 1, lead - house);
+      }
+      for (let y = lead - 4; y > house + 6; y -= 30) {                  // the cross rails travel down with the gate
+        const first = y === lead - 4;
+        g.fillStyle = first && moving ? '#f0c860' : first ? '#a07e2a' : '#2c4440'; g.fillRect(0, y, W, 3);
+        g.fillStyle = first ? 'rgba(255,255,255,.25)' : '#4d6f68'; g.fillRect(0, y, W, 1);
+      }
+      for (let x = 5; x < W; x += 16) {                                 // spikes along the leading edge
+        g.fillStyle = moving ? '#f0c860' : '#8aa59f';
+        poly([[x - 1, lead - 1], [x + 5, lead - 1], [x + 2, lead + 6]]);
+      }
     }
-    if (depth) { g.fillStyle = moving ? '#f0c860' : '#a07e2a'; g.fillRect(x1 + jamb, top + depth - 3, x2 - x1 - 2 * jamb, 3); }
+    g.fillStyle = '#16201f'; g.fillRect(0, 0, W, house);
+    g.fillStyle = '#a07e2a'; for (let x = 0; x < W; x += 12) g.fillRect(x, house - 3, 6, 3);
     let lamp = '#2a4a44';
     if (knocking(side)) lamp = (t * 6 | 0) % 2 ? '#ff3b3b' : '#4a1212';
     else if (moving && !sealed(side)) lamp = '#e8b45a';
     else if (sealed(side)) lamp = '#7fcf8a';
-    g.fillStyle = lamp; g.fillRect(104, 18, 12, 6);
+    g.fillStyle = lamp; g.fillRect(104, 1, 12, 4);
   }
 
   function noise(n) {
@@ -359,7 +417,7 @@
     if (blackout) { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); noise(30); return; }
     const hit = pound(side, t);
     g.save(); g.translate(hit.x, hit.y);
-    drawHall(side, t); drawDoor(side, t);
+    drawHall(side, t); drawGate(side, t);
     if (hit.m) marks(hit.m, t);
     g.restore();
     g.fillStyle = 'rgba(111,183,176,.06)'; g.fillRect(0, (t * 40) % H, W, 10);
@@ -404,8 +462,8 @@
     ui.tabs.forEach((b, i) => b.classList.toggle('alert', knocking(CAMS[i].side)));
     const alarmSides = ['L', 'R'].filter(knocking);
     ui.alert.hidden = !alarmSides.length;
-    ui.alert.textContent = alarmSides.length === 2 ? '! BOTH DOORS · CLOSE SHUTTERS [A] [D]'
-      : alarmSides.length ? '! ' + DOORS[alarmSides[0]].name + ' DOOR · CLOSE SHUTTER [' + (alarmSides[0] === 'L' ? 'A' : 'D') + ']' : '';
+    ui.alert.textContent = alarmSides.length === 2 ? '! BOTH HALLS · DROP THE GATES [A] [D]'
+      : alarmSides.length ? '! ' + DOORS[alarmSides[0]].name + ' HALL · DROP THE GATE [' + (alarmSides[0] === 'L' ? 'A' : 'D') + ']' : '';
     ui.pwr.textContent = pwr;
     ui.pwr.classList.toggle('low', active && p < 25);
   }
@@ -421,13 +479,13 @@
       <div class="cam-tabs">${CAMS.map((c, i) => `<button class="cam-tab" data-cam="${i}"><kbd>${i + 1}</kbd> ${c.short}</button>`).join('')}</div>
       <div class="cam-status">
         <div class="cam-row"><span>RADIATION <em class="cam-sensor">CLEAR</em></span><span class="rad"><i></i><i></i><i></i></span></div>
-        <div class="cam-row"><span>WEST DOOR</span><b class="door-L">OPEN</b></div>
-        <div class="cam-row"><span>EAST DOOR</span><b class="door-R">OPEN</b></div>
+        <div class="cam-row"><span>WEST GATE</span><b class="door-L">OPEN</b></div>
+        <div class="cam-row"><span>EAST GATE</span><b class="door-R">OPEN</b></div>
         <div class="cam-row"><span>POWER</span><b class="cam-pwr">--</b></div>
       </div>`;
     ctl.innerHTML = `<div class="ctl">
-      <button class="ctl-btn ctl-west" data-act="L"><span>◀ WEST SHUTTER<small>${DOORS.L.hint}</small></span><kbd>A</kbd></button>
-      <button class="ctl-btn ctl-east" data-act="R"><span>EAST SHUTTER ▶<small>${DOORS.R.hint}</small></span><kbd>D</kbd></button>
+      <button class="ctl-btn ctl-west" data-act="L"><span>◀ WEST GATE<small>${GATE.hint}</small></span><kbd>A</kbd></button>
+      <button class="ctl-btn ctl-east" data-act="R"><span>EAST GATE ▶<small>${GATE.hint}</small></span><kbd>D</kbd></button>
     </div>`;
     g = root.querySelector('canvas').getContext('2d');
     ui = {

@@ -2,7 +2,9 @@
 (function () {
   const CF = window.CF, S = CF.state, bus = CF.bus, cfg = CF.config;
 
-  const STATUS = { idle: 'READY', travel: 'EN ROUTE', work: 'WORKING', stuck: 'NEEDS HELP', dead: 'LOST' };
+  const STATUS = { idle: 'READY', travel: 'EN ROUTE', work: 'WORKING', stuck: 'NEEDS HELP', injured: 'RESTING', dead: 'LOST' };
+  // Rest time left, in wall-clock hours and minutes (the clock runs faster than the game).
+  const restLeft = (sec) => { const m = Math.ceil(sec * cfg.minutesPerSecond()); return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
 
   let sel = null, hintOverride = '';
   const crewEl = {}, objEl = {};
@@ -28,7 +30,9 @@
       e.btn.classList.toggle('is-stuck', t.status === 'stuck');
       e.pips.forEach((p, i) => p.classList.toggle('on', i < t.hp));
       const place = t.at ? (cfg.objectives.find((o) => o.id === t.at) || {}).place : '';
-      e.st.textContent = t.status === 'travel' || t.status === 'work' ? STATUS[t.status] + ' · ' + place : STATUS[t.status];
+      e.btn.classList.toggle('is-hurt', t.status === 'injured');
+      e.st.textContent = t.status === 'travel' || t.status === 'work' ? STATUS[t.status] + ' · ' + place
+        : t.status === 'injured' ? STATUS.injured + ' · ' + restLeft(t.timer) : STATUS[t.status];
     });
     if (sel && !team.some((t) => t.id === sel && t.status === 'idle')) sel = null;
 

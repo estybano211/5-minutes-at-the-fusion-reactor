@@ -152,7 +152,7 @@
   const whisper = (pan, vol) => breath({ freq: 2300, q: 4, dur: 1.1, vol: vol, wobble: 7, pan: pan, attack: 0.5 });
   const wail = (pan, vol) => voice({ freqs: [640, 962], type: 'sine', dur: 1.4, to: 0.7, cut: 1800, vol: vol, vib: 14, vibRate: 6.5, attack: 0.5, pan: pan });
 
-  // What each creature sounds like at each stage: 1 far away, 2 near the shutter, 3 at the shutter. `again` is a repeat while it waits.
+  // What each creature sounds like at each stage: 1 far away, 2 near the gate, 3 at the gate. `again` is a repeat while it waits.
   const CREATURE = {
     walker(stage, p, again) {
       if (again) { step(p, 0.55); breath({ freq: 800, dur: 0.9, vol: 0.06, pan: p }); return; }
@@ -187,12 +187,40 @@
     deny()      { tone(140, 0.18, 'sawtooth', 0.12); },
     chime()     { tone(520, 0.06, 'square', 0.09); later(() => tone(780, 0.06, 'square', 0.09), 70); later(() => tone(1040, 0.12, 'square', 0.09), 140); },
     knock()     { slam(0, 0.5); },
-    shutter()   { noise(0.35, 0.25, 900); tone(90, 0.3, 'sawtooth', 0.1, 60); },
+    // The gate: a chain rattle, then a heavy clank when the bars hit the floor. Going up is only the rattle.
+    gatedown()  {
+      for (let i = 0; i < 5; i++) later(() => noise(0.03, 0.16, 2800 + i * 260, 'bandpass', 0, 6), i * 85);
+      later(() => { tone(70, 0.3, 'sine', 0.45, 38); tone(310, 0.22, 'triangle', 0.09, 280); noise(0.16, 0.3, 700, 'bandpass', 0, 2); }, 470);
+    },
+    gateup()    { for (let i = 0; i < 4; i++) later(() => noise(0.03, 0.12, 3400 - i * 280, 'bandpass', 0, 6), i * 95); },
+    // A new line on the intercom. Crew lines get a soft blip; whispers over the radio get a squelch and a low note.
+    msg()       { tone(988, 0.07, 'triangle', 0.07); later(() => tone(1319, 0.1, 'triangle', 0.06), 85); },
+    radio()     {
+      noise(0.14, 0.12, 2400, 'bandpass', 0, 0.9);
+      later(() => tone(420, 0.1, 'triangle', 0.06, 360), 120);
+      later(() => noise(0.09, 0.07, 3100, 'bandpass', 0, 1), 270);
+    },
     powerdown() { tone(220, 1.2, 'sawtooth', 0.18, 30); },
     static()    { noise(0.25, 0.14, 2000); },
     heart()     { tone(54, 0.14, 'sine', 0.4, 38); later(() => tone(48, 0.16, 'sine', 0.3, 34), 190); },
     // The catch: a roar, a rush of breath and a thin scream.
     scare()     { voice({ freqs: [58, 61, 117], dur: 1.3, to: 0.7, cut: 700, vol: 0.55, trem: 24, depth: 0.8, attack: 0.1 }); noise(0.8, 0.5, 1500, 'bandpass', 0, 0.8); wail(0, 0.16); },
+    // The launch film: engine rumble that swells for ~13 s, and the muffled boom of the plant going.
+    rumble()    {
+      if (!ac) return;
+      const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+      s.buffer = noiseBuf; s.loop = true; f.type = 'lowpass';
+      f.frequency.setValueAtTime(120, t); f.frequency.exponentialRampToValueAtTime(900, t + 7);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.55, t + 5.5); g.gain.setValueAtTime(0.55, t + 7); g.gain.exponentialRampToValueAtTime(0.0001, t + 13);
+      s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + 13.2);
+      const o = ac.createOscillator(), lp = ac.createBiquadFilter(), og = ac.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(34, t); o.frequency.linearRampToValueAtTime(58, t + 9);
+      lp.type = 'lowpass'; lp.frequency.value = 130;
+      og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.3, t + 5); og.gain.exponentialRampToValueAtTime(0.0001, t + 13);
+      o.connect(lp); lp.connect(og); og.connect(master); o.start(t); o.stop(t + 13.2);
+      noise(2.4, 0.07, 2600, 'highpass');                          // the first hiss of the engine
+    },
+    boom()      { tone(46, 1.8, 'sine', 0.7, 22); noise(1.5, 0.5, 260, 'lowpass'); later(() => noise(1.3, 0.25, 160, 'lowpass'), 280); },
     win()       { [523, 659, 784, 1046].forEach((f, i) => later(() => tone(f, 0.22, 'square', 0.1), i * 140)); },
     lose()      { tone(110, 1.4, 'sawtooth', 0.22, 28); },
     death()     { noise(0.5, 0.45, 500); tone(60, 0.8, 'sawtooth', 0.25, 30); },
